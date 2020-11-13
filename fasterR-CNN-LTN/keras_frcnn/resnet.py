@@ -240,9 +240,8 @@ def rpn(base_layers,num_anchors):
 
 
 
-    
-    
 #versione del classificatore che integra anche la parte di regressione nel training
+#questo codice identifica l' allenamento che ha ottenuto mAP = 0.31
 def classifier(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
     if K.backend() == 'tensorflow':
         pooling_regions = 14
@@ -263,7 +262,7 @@ def classifier(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
     
     
-    #tensors = bb_creation(nb_classes)([out_regr,out_class])
+    tensors = bb_creation(nb_classes)([out_regr,out_class])
     
 
     output = []
@@ -276,9 +275,9 @@ def classifier(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False
         
         
         
-        p = ltn.Predicate(num_features=nb_classes,k=6,i=i)
+        p = ltn.Predicate(num_features=nb_classes+4,k=6,i=i)
         
-        x = p(out_class)
+        x = p(tensors[i])
         
         #x = keras.layers.Lambda(lambda o: tf.Print(o,[o],"predicates {}".format(i)))(x)
         
@@ -306,66 +305,10 @@ def getDims(base_layers):
     if K.image_dim_ordering() == 'th':
         return base_layers.shape[2],base_layers.shape[3]
     else:
-        return base_layers.shape[1],base_layers.shape[2]  
-def classifierRegr(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
+        return base_layers.shape[1],base_layers.shape[2]
 
-    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
-    
-    if K.backend() == 'tensorflow':
-        pooling_regions = 14
-        input_shape = (num_rois,14,14,1024)
-    elif K.backend() == 'theano':
-        pooling_regions = 7
-        input_shape = (num_rois,1024,7,7)
-    
-    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
-    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
-
-    out = TimeDistributed(Flatten())(out)
-    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
-    # note: no regression target for bg class
-    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
-    
- 
-    
-    tensors = bb_creation(nb_classes,num_rois)([out_regr,out_class,input_rois,base_layers])
-    
-
-    output = []
-    
-    
- 
-    
-    for i in range(nb_classes - 1):
-        
-        p = ltn.Predicate(num_features=nb_classes + 4,k=6,i=i)
-        
-        x = p(tensors[i])
-        
-        
-
-        
-        
-        #questa espressione serve a garantire il ruolo del literal
-    
-        a = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(A[i])
-        b = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(B[i])
-        
-        x = keras.layers.Subtract()([a,x])
-        x = keras.layers.Multiply()([x,b])
-
-        x = keras.layers.Lambda(lambda o: clause_Layer(o))(x)
-        
-        output.append(x)
-        
-    
-    out_ltn = keras.layers.Concatenate(axis=1)(output)
-    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
-    
-    
-    return [out_regr , out_ltn]
-
-def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes = 21, trainable=False):
+#Questa versisone del classifier esegue l' allenamento usando come input della LTN il solo out_class
+def classifierInputVectorClass(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
     
@@ -383,9 +326,6 @@ def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes = 21, traina
     out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
-    
-    
-   # tensors = bb_creation(nb_classes)([out_regr,out_class])
     
 
     output = []
@@ -394,7 +334,7 @@ def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes = 21, traina
         
         x = ltn.Predicate(num_features=nb_classes,k=6,i=i)(out_class)
         #questa espressione serve a garantire il ruolo del literal
-        '''
+    
         a = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(A[i])
         b = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(B[i])
         
@@ -402,7 +342,7 @@ def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes = 21, traina
         x = keras.layers.Multiply()([x,b])
 
         x = keras.layers.Lambda(lambda o: clause_Layer(o))(x)
-        '''
+        
         output.append(x)
         
 
@@ -411,4 +351,332 @@ def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes = 21, traina
 
     
     return [out_regr , out_ltn]
+
+#Questa implementazione per generare gli input della LTN fa sempre la "concatenazione" out_class-out_regr in bb_creation ma richiama la bb_creation_v1
+#Con questa implementazione ho raggiunto mAP = 0.52  
+def classifierNewRegression(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+    
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    tensors = bb_creation_v1(nb_classes,num_rois)([out_regr,out_class,input_rois,base_layers])
+    output = []
+    for i in range(nb_classes - 1):
+        
+        p = ltn.Predicate(num_features=nb_classes + 4,k=6,i=i)
+        
+        x = p(tensors[i])
+        #questa espressione serve a garantire il ruolo del literal
+    
+        a = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(A[i])
+        b = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(B[i])
+        
+        x = keras.layers.Subtract()([a,x])
+        x = keras.layers.Multiply()([x,b])
+
+        x = keras.layers.Lambda(lambda o: clause_Layer(o))(x)
+        
+        output.append(x)
+        
+    
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+    
+    
+    return [out_regr , out_ltn]
+
+#Uguale a classifierInputVectorClass ma aggiunge il predicato LTN per la classe background(bg)
+def classifierInputVectorClassBgPredicate(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    
+
+    
+
+    output = []
+    
+    for i in range(nb_classes):
+        
+        x = ltn.Predicate(num_features=nb_classes,k=6,i=i)(out_class)
+        #questa espressione serve a garantire il ruolo del literal
+    
+        a = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(A[i])
+        b = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(B[i])
+        
+        x = keras.layers.Subtract()([a,x])
+        x = keras.layers.Multiply()([x,b])
+
+        x = keras.layers.Lambda(lambda o: clause_Layer(o))(x)
+        
+        output.append(x)
+        
+
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+
+    
+    return [out_regr , out_ltn] 
+
+#uguale a classifierNewRegression ma come prima aggiungo il predicato LTN per la classe bg
+def classifierNewRegressionBgPredicate(base_layers, input_rois,num_rois, nb_classes,A,B, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+    
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    
+    #uso la versione v2 di bb_creation che aggiunge alla lista dei tensori quello di input per la classe bg
+    tensors = bb_creation_v2(nb_classes,num_rois)([out_regr,out_class,input_rois,base_layers])
+    output = []
+    for i in range(nb_classes):
+        
+        p = ltn.Predicate(num_features=nb_classes + 4,k=6,i=i)
+        
+        x = p(tensors[i])
+        #questa espressione serve a garantire il ruolo del literal
+    
+        a = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(A[i])
+        b = keras.layers.Lambda(lambda o: tf.reshape(o,[num_rois,1]))(B[i])
+        
+        x = keras.layers.Subtract()([a,x])
+        x = keras.layers.Multiply()([x,b])
+
+        x = keras.layers.Lambda(lambda o: clause_Layer(o))(x)
+        
+        output.append(x)
+        
+    
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+    
+    
+    return [out_regr , out_ltn]
+
+#QUI CI SONO TUTTE LE VERSIONI DEL CLASSIFIER DA CHIAMARE IN FASE DI INFERENZA
+#DATO CHE IL MODULO LTN CAMBIA IN FASE DI INFERENZA HO DEFINITO QUESTI CLASSIFIER
+#IL NOME DI OGNIUNA E' DATO DAL NOME DEL CORRISPETTIVO CLASSIFIER DEL TRAINING+"Evaluate"
+#Es classifierInputVectorClass -> classifierInputVectorClassEvaluate
+def classifierEvaluate(base_layers, input_rois,num_rois, nb_classes, trainable=False):
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+    
+    
+    #base_layers = tf.Print(base_layers,[base_layers],"BASE_LAYERS_SHAPE")
+    
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    
+    
+    tensors = bb_creation(nb_classes,num_rois)([out_regr,out_class])
+    output = []
+    for i in range(nb_classes - 1):
+        p = ltn.Predicate(num_features=nb_classes+4,k=6,i=i)
+        x = p(tensors[i])
+        #vengono scartati i layer relativi al comportamento del literal e del clause
+        output.append(x)
+        
+    
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+    
+    
+    return [out_regr , out_class]
+def classifierInputVectorClassEvaluate(base_layers, input_rois,num_rois, nb_classes, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    
+    
+
+    
+
+    output = []
+    
+    for i in range(nb_classes - 1):
+        
+        x = ltn.Predicate(num_features=nb_classes,k=6,i=i)(out_class)
+      
+      
+        output.append(x)
+        
+
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+
+    
+    return [out_regr , out_ltn]
+
+def classifierNewRegressionEvaluate(base_layers, input_rois,num_rois, nb_classes,trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+    
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    tensors = bb_creation_v1(nb_classes,num_rois)([out_regr,out_class,input_rois,base_layers])
+    output = []
+    for i in range(nb_classes - 1):
+        
+        p = ltn.Predicate(num_features=nb_classes + 4,k=6,i=i)
+        
+        x = p(tensors[i])
+        #questa espressione serve a garantire il ruolo del literal
+    
+        output.append(x)
+        
+    
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+    
+    
+    return [out_regr , out_ltn]
+
+def classifierInputVectorClassBgPredicateEvaluate(base_layers, input_rois,num_rois, nb_classes, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    
+
+    
+
+    output = []
+    
+    for i in range(nb_classes):
+        
+        x = ltn.Predicate(num_features=nb_classes,k=6,i=i)(out_class)
+        
+        output.append(x)
+        
+
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+
+    
+    return [out_regr , out_ltn]
+  
+def classifierNewRegressionBgPredicateEvaluate(base_layers, input_rois,num_rois, nb_classes, trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+    
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+    
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+    tensors = bb_creation_v2(nb_classes,num_rois)([out_regr,out_class,input_rois,base_layers])
+    output = []
+    for i in range(nb_classes):
+        
+        p = ltn.Predicate(num_features=nb_classes + 4,k=6,i=i)
+        
+        x = p(tensors[i])
+        
+        
+        output.append(x)
+        
+    
+    out_ltn = keras.layers.Concatenate(axis=1)(output)
+    out_ltn = keras.layers.Lambda(lambda x:keras.backend.expand_dims(x,0))(out_ltn)
+    
+    
+    return [out_regr , out_ltn]
+
+
 

@@ -32,8 +32,7 @@ if not options.test_path:   # if filename is not given
 
 config_output_filename = options.config_filename
 
-with open(config_output_filename, 'rb') as f_in:
-	C = pickle.load(f_in)
+C = config.Config()
 
 if C.network == 'resnet50':
 	import keras_frcnn.resnet as nn
@@ -136,8 +135,8 @@ model_classifier = Model([feature_map_input, roi_input], classifier)
 
 
 print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights("/Users/davidemiro/Desktop/Pesi_allenamenti/model_rpn.hdf5", by_name=True)
-model_classifier.load_weights("/Users/davidemiro/Desktop/Pesi_allenamenti/model_classifier.hdf5", by_name=True)
+model_rpn.load_weights("model_rpn.hdf5", by_name=True)
+model_classifier.load_weights("model_classifier.hdf5", by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -249,8 +248,8 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 		
 	print('Elapsed time = {}'.format(time.time() - st))
 	#print(all_dets)
-	if ikd != 0:
-		cv2.imshow('img', img)
-		cv2.waitKey(0)
-	ikd+=1
-	#cv2.imwrite('/Users/davidemiro/Desktop/results_imgs/{}.png'.format(idx),img)
+
+	cv2.imshow('img', img)
+	cv2.waitKey(0)
+	
+	#cv2.imwrite('results_imgs/{}.png'.format(idx),img)

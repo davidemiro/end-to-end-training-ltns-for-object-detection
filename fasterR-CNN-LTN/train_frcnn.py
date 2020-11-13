@@ -19,7 +19,7 @@ import keras_frcnn.ltn as ltn
 import tensorflow as tf
 
 
-
+#Questa funzione crea i vettori A,B,uno per ogni classe
 def defineGT(labels,nb_classes,batch_size):
 	batches_A = []
 	batches_B = []
@@ -157,7 +157,8 @@ rpn = nn.rpn(shared_layers, num_anchors)
 nb_classes=len(classes_count)
 A = [Input(shape=(C.num_rois,1)) for i in range(nb_classes - 1)]
 B = [Input(shape=(C.num_rois,1)) for i in range(nb_classes - 1)]
-classifier = nn.classifierEvaluate(shared_layers, roi_input,C.num_rois,len(classes_count), trainable=True)
+
+classifier = nn.classifier(shared_layers, roi_input,A,B,C.num_rois,len(classes_count), trainable=True)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input], classifier)
@@ -270,13 +271,12 @@ for epoch_num in range(num_epochs):
 				else:
 					sel_samples = random.choice(pos_samples)
 					
-			#A,B = defineGT(Y1[:, sel_samples, :],len(class_mapping), C.num_rois)
+			A,B = defineGT(Y1[:, sel_samples, :],len(class_mapping), C.num_rois)
 
 			
 
 			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y2[:, sel_samples, :],np.ones(shape=(1,59))])
-			[P_regr,P_cls] = model_classifier.predict([X,X2[:, sel_samples, :]])
-			print(P_cls)
+
 		
 			
 

@@ -101,10 +101,7 @@ else:
 	raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
 config_output_filename = options.config_filename
-'''
-with open(config_output_filename, 'r') as f_in:
-	C = pickle.load(f_in)
-'''
+
 C = config.Config()
 # turn off any data augmentation at test time
 C.use_horizontal_flips = False
@@ -236,7 +233,10 @@ for idx, img_data in enumerate(test_imgs):
 		[P_regr,P_cls] = model_classifier.predict([F, ROIs])
 	
 		for ii in range(P_cls.shape[1]):
-			
+			'''
+			if np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+				continue
+			'''
 			
 			cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
 			
