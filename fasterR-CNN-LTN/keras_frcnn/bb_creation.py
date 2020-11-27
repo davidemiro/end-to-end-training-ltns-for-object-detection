@@ -1,5 +1,6 @@
 import tensorflow as tf
 from keras.layers import Layer,Activation
+from keras import backend as K
 
 #Questo file contiene l 'implementazione della class bb_creation che fornisce un layer per concatenare l' output del softmax FRCNN con l' output di regressione sempre del FRCNN per generare i tensori di input della LTN
 #Nei vari allenamenti questa classe è stata aggiornata,quindi ci sono anche la v1 e v2  
@@ -35,13 +36,13 @@ class bb_creation(Layer):
 class bb_creation_v1(Layer):
     
     def __init__(self,classes,num_rois, **kwargs):
-        super(bb_creation,self).__init__(**kwargs)
+        super(bb_creation_v1,self).__init__(**kwargs)
         self.classes = classes
         self.num_rois = num_rois   
 
        
     def build(self, input_shape):
-        super(bb_creation,self).build(input_shape)
+        super(bb_creation_v1,self).build(input_shape)
     def compute_output_shape(self,inputShape):
     
         return [(inputShape[0][1],inputShape[0][1],inputShape[0][2] + 4) for _ in range(self.classes-1)]
@@ -119,13 +120,13 @@ class bb_creation_v1(Layer):
 class bb_creation_v2(Layer):
     
     def __init__(self,classes,num_rois, **kwargs):
-        super(bb_creation,self).__init__(**kwargs)
+        super(bb_creation_v2,self).__init__(**kwargs)
         self.classes = classes
         self.num_rois = num_rois   
 
        
     def build(self, input_shape):
-        super(bb_creation,self).build(input_shape)
+        super(bb_creation_v2,self).build(input_shape)
     def compute_output_shape(self,inputShape):
     
         return [(inputShape[0][1],inputShape[0][1],inputShape[0][2] + 4) for _ in range(self.classes)]

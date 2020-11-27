@@ -11,6 +11,7 @@ from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from keras_frcnn import roi_helpers
+from keras_frcnn.pascal_voc_parser import get_data
 
 sys.setrecursionlimit(40000)
 
@@ -91,15 +92,20 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
 	real_y2 = int(round(y2 // ratio))
 
 	return (real_x1, real_y1, real_x2 ,real_y2)
+all_imgs, _, class_mapping = get_data(options.test_path)
+test_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
 
-class_mapping = C.class_mapping
 
-if 'bg' not in class_mapping:
-	class_mapping['bg'] = len(class_mapping)
+class_mapping = {0: 'Person', 1: 'Hand', 2: 'Arm', 3: 'Neck', 4: 'Torso', 5: 'Nose', 6: 'Hair', 7: 'Mouth', 8: 'Ebrow', 9: 'Eye', 10: 'Ear', 11: 'Head', 12: 'Bottle', 13: 'Cap', 14: 'Body', 15: 'Leg', 16: 'Pottedplant', 17: 'Plant', 18: 'Pot', 19: 'Foot', 20: 'Chair', 21: 'Sheep', 22: 'Tail', 23: 'Muzzle', 24: 'Cat', 25: 'Dog', 26: 'Train', 27: 'Locomotive', 28: 'Bicycle', 29: 'Handlebar', 30: 'Chain_Wheel', 31: 'Wheel', 32: 'Motorbike', 33: 'Tvmonitor', 34: 'Screen', 35: 'Horse', 36: 'Hoof', 37: 'Car', 38: 'Window', 39: 'Bodywork', 40: 'Mirror', 41: 'License_plate', 42: 'Door', 43: 'Headlight', 44: 'Saddle', 45: 'Boat', 46: 'Diningtable', 47: 'Coach', 48: 'Aeroplane', 49: 'Stern', 50: 'Sofa', 51: 'Bird', 52: 'Beak', 53: 'Artifact_Wing', 54: 'Engine', 55: 'Bus', 56: 'Animal_Wing', 57: 'Horn', 58: 'Cow', 59: 'bg'}
 
-class_mapping = {v: k for k, v in class_mapping.items()}
+
+
+
+
+
 print(class_mapping)
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
+
 C.num_rois = int(options.num_rois)
 
 if C.network == 'resnet50':
@@ -128,15 +134,15 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, nb_classes=len(class_mapping), trainable=True)
+classifier = nn.classifierNewRegressionEvaluate(feature_map_input, roi_input, C.num_rois, nb_classes=len(class_mapping), trainable=True)
 
 model_rpn = Model(img_input, rpn_layers)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 
 print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights("model_rpn.hdf5", by_name=True)
-model_classifier.load_weights("model_classifier.hdf5", by_name=True)
+model_rpn.load_weights('model_rpn_new_regression_22_11.hdf5', by_name=True)
+model_classifier.load_weights('model_classifier_new_regression_22_11.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -145,17 +151,22 @@ all_imgs = []
 
 classes = {}
 
-bbox_threshold = 0.8
+bbox_threshold = 0.7
 
-visualise = True
-img_path= img_path + "/JPEGImages/"
-ikd = 0
-for idx, img_name in enumerate(sorted(os.listdir(img_path))):
-	if not img_name.lower().endswith(('.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff')):
-		continue
+all_imgs, _, _ = get_data(options.test_path)
+test_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
+
+
+T = {}
+P = {}
+
+for idx, img_data in enumerate(test_imgs):
+	
+	img_name = img_data['filepath'][-15:]
 	print(img_name)
+	
 	st = time.time()
-	filepath = os.path.join(img_path,img_name)
+	filepath = img_data['filepath']
 
 	img = cv2.imread(filepath)
 
@@ -193,6 +204,7 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 			ROIs = ROIs_padded
 
 		[P_regr,P_cls] = model_classifier.predict([F, ROIs])
+		
 
 		for ii in range(P_cls.shape[1]):
 			'''
@@ -249,7 +261,6 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 	print('Elapsed time = {}'.format(time.time() - st))
 	#print(all_dets)
 
-	cv2.imshow('img', img)
-	cv2.waitKey(0)
 	
-	#cv2.imwrite('results_imgs/{}.png'.format(idx),img)
+	
+	cv2.imwrite('results_imgs/{}.png'.format(img_name),img)

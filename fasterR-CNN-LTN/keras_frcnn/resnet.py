@@ -15,7 +15,7 @@ from keras import backend as K
 
 from keras_frcnn.RoiPoolingConv import RoiPoolingConv
 from keras_frcnn.FixedBatchNormalization import FixedBatchNormalization
-from keras_frcnn.bb_creation import bb_creation
+from keras_frcnn.bb_creation import bb_creation,bb_creation_v1,bb_creation_v2
 from keras_frcnn import ltn
 from keras.layers.merge import concatenate
 import keras
