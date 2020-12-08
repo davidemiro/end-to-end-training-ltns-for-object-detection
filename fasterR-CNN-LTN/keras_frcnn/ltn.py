@@ -62,30 +62,15 @@ class Predicate(Layer):
         h = tf.sigmoid(gX)
         #h = tf.Print(h,[h],"h{}:".format(self.name))
         return h
-class Clause(Layer):
-    def __init__(self, **kwargs):
-        super(Clause,self).__init__(**kwargs)
-        self.name ='Clause'
-        
-    def build(self, input_shape):
-        # Create a trainable weight variable for this layer.
-        super(Clause, self).build(input_shape)  # Be sure to call this at the end
-    def call(self, x):
-        #(1,batch,features) -> (batch,features)
 
-        inputs = x[0]
-        A = x[1]
-        B = x[2]
-        inputs = tf.math.subtract(A, inputs)
-        inputs = tf.matmul(inputs,B)
-        result = tf.minimum(1.0,tf.reduce_sum(inputs,1, keep_dims=True))
-        h = tf.div(tf.to_float(tf.size(result)),tf.reduce_sum(tf.reciprocal(result),keep_dims=True))
-        return h
            
 
 
 def ltn_loss(y_true,y_pred):
-    return -tf.div(tf.to_float(tf.size(y_pred)), tf.reduce_sum(tf.reciprocal(y_pred), keep_dims=True))
+    # y_pred = 1 solo in corrispondenza di batch con esempi positivi
+    #return -tf.div(tf.to_float(tf.size(y_pred)), tf.reduce_sum(tf.reciprocal(y_pred), keep_dims=True))
+    print("ciao")
+    return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred)+tf.constant(1e-15), keep_dims=True))
         #return -tf.div(tf.to_float(tf.size(y_pred)), tf.reduce_sum(tf.reciprocal(y_pred), keep_dims=True))
 
 

@@ -101,7 +101,8 @@ else:
 
 config_output_filename = options.config_filename
 
-C = config.Config()
+with open(config_output_filename, 'r') as f_in:
+	C = pickle.load(f_in)
 
 # turn off any data augmentation at test time
 C.use_horizontal_flips = False
@@ -149,7 +150,7 @@ class_mapping = C.class_mapping
 if 'bg' not in class_mapping:
 	class_mapping['bg'] = len(class_mapping)
 
-class_mapping = {v: k for k, v in class_mapping.items()}
+class_mapping = {v: k for k, v in class_mapping.iteritems()}
 print(class_mapping)
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
 C.num_rois = int(options.num_rois)
@@ -173,15 +174,15 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierNewRegressionEvaluate(feature_map_input, roi_input, C.num_rois, nb_classes=len(class_mapping), trainable=True)
+classifier = nn.classifier(feature_map_input, roi_input, C.num_rois, nb_classes=len(class_mapping), trainable=True)
 
 model_rpn = Model(img_input, rpn_layers)
-#model_classifier_only = Model([feature_map_input, roi_input], classifier)
+model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
-#model_rpn.load_weights("./model_rpn_new_regression_22_11.hdf5", by_name=True)
-#model_classifier.load_weights("./model_classifier_new_regression_22_11.hdf5", by_name=True)
+model_rpn.load_weights(C.model_path, by_name=True)
+model_classifier.load_weights(C.model_path, by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -192,7 +193,6 @@ test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
 T = {}
 P = {}
-print("ciao")
 for idx, img_data in enumerate(test_imgs):
 	print('{}/{}'.format(idx,len(test_imgs)))
 	st = time.time()
@@ -232,11 +232,12 @@ for idx, img_data in enumerate(test_imgs):
 			ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
 			ROIs = ROIs_padded
 
-		[P_regr,P_cls] = model_classifier.predict([F, ROIs])
+		[P_cls, P_regr] = model_classifier_only.predict([F, ROIs])
 
 		for ii in range(P_cls.shape[1]):
 
-			
+			if np.argmax(P_cls[0, ii, :]) == (P_cls.shape[2] - 1):
+				continue
 
 			cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
 
@@ -263,10 +264,8 @@ for idx, img_data in enumerate(test_imgs):
 
 	for key in bboxes:
 		bbox = np.array(bboxes[key])
-		try:
-		    new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
-		except:
-		    continue
+
+		new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
 		for jk in range(new_boxes.shape[0]):
 			(x1, y1, x2, y2) = new_boxes[jk, :]
 			det = {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': key, 'prob': new_probs[jk]}

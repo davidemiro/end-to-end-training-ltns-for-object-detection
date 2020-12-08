@@ -15,39 +15,16 @@ from keras_frcnn import config, data_generators
 from keras_frcnn import losses as losses
 import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
-import keras_frcnn.ltn as ltn
-import tensorflow as tf
 
-
-#Questa funzione crea i vettori A,B,uno per ogni classe
-def defineGT(labels,nb_classes,batch_size):
-	batches_A = []
-	batches_B = []
-	#tolgo il background	
-	for i in range(nb_classes - 1):
-		batch_A = np.ones((batch_size,1))
-		batch_B = np.ones((batch_size,1))    
-		for j in range(batch_size):
-			label = np.argmax(labels[0,j,:])
-			if label  == i:
-				batch_A[j,0] = 0
-				batch_B[j,0] = -1
-		
-		batches_A.append(np.expand_dims(batch_A,axis=0))
-		batches_B.append(np.expand_dims(batch_B,axis=0))
-	
-	return batches_A,batches_B
-
-	
 sys.setrecursionlimit(40000)
 
 parser = OptionParser()
 
 parser.add_option("-p", "--path", dest="train_path", help="Path to training data.")
 parser.add_option("-o", "--parser", dest="parser", help="Parser to use. One of simple or pascal_voc",
-				default="pascal_voc")
+				default="simple")
 parser.add_option("-n", "--num_rois", type="int", dest="num_rois", help="Number of RoIs to process at once.", default=32)
-parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet50')
+parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet101')
 parser.add_option("--hf", dest="horizontal_flips", help="Augment with horizontal flips in training. (Default=false).", action="store_true", default=False)
 parser.add_option("--vf", dest="vertical_flips", help="Augment with vertical flips in training. (Default=false).", action="store_true", default=False)
 parser.add_option("--rot", "--rot_90", dest="rot_90", help="Augment with 90 degree rotations in training. (Default=false).",
@@ -74,8 +51,6 @@ else:
 # pass the settings from the command line, and persist them in the config object
 C = config.Config()
 
-
-
 C.use_horizontal_flips = bool(options.horizontal_flips)
 C.use_vertical_flips = bool(options.vertical_flips)
 C.rot_90 = bool(options.rot_90)
@@ -96,8 +71,6 @@ else:
 	print('Not a valid model')
 	raise ValueError
 
-C = config.Config()
-
 
 # check if weight path was passed via command line
 if options.input_weight_path:
@@ -107,11 +80,12 @@ else:
 	C.base_net_weights = nn.get_weight_path()
 
 all_imgs, classes_count, class_mapping = get_data(options.train_path)
+
 if 'bg' not in classes_count:
 	classes_count['bg'] = 0
 	class_mapping['bg'] = len(class_mapping)
 
-class_mapping = C.class_mapping
+C.class_mapping = class_mapping
 
 inv_map = {v: k for k, v in class_mapping.items()}
 
@@ -147,32 +121,25 @@ else:
 img_input = Input(shape=input_shape_img)
 roi_input = Input(shape=(None, 4))
 
-
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
 
 # define the RPN, built on the base layers
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
-nb_classes=len(classes_count)
-A = [Input(shape=(C.num_rois,1)) for i in range(nb_classes - 1)]
-B = [Input(shape=(C.num_rois,1)) for i in range(nb_classes - 1)]
 
-classifier = nn.classifier(shared_layers, roi_input,A,B,C.num_rois,len(classes_count), trainable=True)
+classifier = nn.classifier(shared_layers, roi_input, C.num_rois, nb_classes=len(classes_count), trainable=True)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input], classifier)
 
 # this is a model that holds both the RPN and the classifier, used to load/save weights for the models
-
 model_all = Model([img_input, roi_input], rpn[:2] + classifier)
-
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_classifier.load_weights("model_classifier.hdf5", by_name=True)
-	model_rpn.load_weights("model_rpn.hdf5", by_name=True)
-	
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -180,13 +147,11 @@ except:
 optimizer = Adam(lr=1e-5)
 optimizer_classifier = Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
-model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_regr(len(classes_count)-1),ltn.ltn_loss], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
-
-
+model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_cls, losses.class_loss_regr(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 1000
-num_epochs = 80
+num_epochs = int(options.num_epochs)
 iter_num = 0
 
 losses = np.zeros((epoch_length, 5))
@@ -201,17 +166,13 @@ print('Starting training')
 
 vis = True
 
-
 for epoch_num in range(num_epochs):
-	
-	
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
 
 	while True:
 		try:
-			#log_file = open('ls_ltn.txt','a')
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor))/len(rpn_accuracy_rpn_monitor)
@@ -270,41 +231,26 @@ for epoch_num in range(num_epochs):
 					sel_samples = random.choice(neg_samples)
 				else:
 					sel_samples = random.choice(pos_samples)
-					
-			A,B = defineGT(Y1[:, sel_samples, :],len(class_mapping), C.num_rois)
 
-			
-
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y2[:, sel_samples, :],np.ones(shape=(1,59))])
-
-		
-			
+			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]], [Y1[:, sel_samples, :], Y2[:, sel_samples, :]])
 
 			losses[iter_num, 0] = loss_rpn[1]
 			losses[iter_num, 1] = loss_rpn[2]
 
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
-			
-			'''
-			for i in range(4):
-				log_file.write('{}\t'.format(np.mean(losses[:iter_num, i])))
-			log_file.write('\n')
-			'''
-			
-			
-			#log_file.close()
+			losses[iter_num, 4] = loss_class[3]
 
 			iter_num += 1
 
 			progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
-									  ('detector_regr', np.mean(losses[:iter_num, 2])), ('ltn_loss', np.mean(losses[:iter_num, 3]))])
+									  ('detector_cls', np.mean(losses[:iter_num, 2])), ('detector_regr', np.mean(losses[:iter_num, 3]))])
 
 			if iter_num == epoch_length:
 				loss_rpn_cls = np.mean(losses[:, 0])
 				loss_rpn_regr = np.mean(losses[:, 1])
-				loss_class_regr = np.mean(losses[:, 2])
-				loss_ltn = np.mean(losses[:, 3])
+				loss_class_cls = np.mean(losses[:, 2])
+				loss_class_regr = np.mean(losses[:, 3])
 				class_acc = np.mean(losses[:, 4])
 
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
@@ -315,11 +261,11 @@ for epoch_num in range(num_epochs):
 					print('Classifier accuracy for bounding boxes from RPN: {}'.format(class_acc))
 					print('Loss RPN classifier: {}'.format(loss_rpn_cls))
 					print('Loss RPN regression: {}'.format(loss_rpn_regr))
-					print('Loss LTN: {}'.format(loss_ltn))
+					print('Loss Detector classifier: {}'.format(loss_class_cls))
 					print('Loss Detector regression: {}'.format(loss_class_regr))
 					print('Elapsed time: {}'.format(time.time() - start_time))
 
-				curr_loss = loss_rpn_cls + loss_rpn_regr + loss_ltn + loss_class_regr
+				curr_loss = loss_rpn_cls + loss_rpn_regr + loss_class_cls + loss_class_regr
 				iter_num = 0
 				start_time = time.time()
 
@@ -328,8 +274,6 @@ for epoch_num in range(num_epochs):
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
 					best_loss = curr_loss
 					model_all.save_weights(C.model_path)
-					model_classifier.save_weights('./model_classifier.hdf5')
-					model_rpn.save_weights('./model_rpn.hdf5')
 
 				break
 

@@ -84,12 +84,12 @@ else:
 	C.base_net_weights = nn.get_weight_path()
 
 all_imgs, classes_count, class_mapping = get_data(options.train_path)
-import pdb;pdb.set_trace()
+
 if 'bg' not in classes_count:
 	classes_count['bg'] = 0
 	class_mapping['bg'] = len(class_mapping)
 
-class_mapping = C.class_mapping
+
 
 inv_map = {v: k for k, v in class_mapping.items()}
 
@@ -132,7 +132,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierRegr(shared_layers, roi_input, C.num_rois, nb_classes=len(classes_count), trainable=True)
+classifier = nn.classifier(shared_layers, roi_input, C.num_rois, nb_classes=len(classes_count), trainable=True)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input], classifier)
@@ -282,8 +282,8 @@ for epoch_num in range(num_epochs):
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
 					best_loss = curr_loss
 					model_all.save_weights(C.model_path)
-					model_classifier.save_weights('./model_classifier.hdf5')
-					model_rpn.save_weights('./model_rpn.hdf5')
+					model_classifier.save_weights('./model_classifier_PASCAL_VOC_8_12.hdf5')
+					model_rpn.save_weights('./model_rpn_original_PASCAL_VOC_8_12.hdf5')
 
 				break
 
