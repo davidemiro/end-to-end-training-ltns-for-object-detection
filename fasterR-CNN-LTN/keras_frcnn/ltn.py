@@ -66,12 +66,11 @@ class Predicate(Layer):
            
 
 
+
 def ltn_loss(y_true,y_pred):
-    # y_pred = 1 solo in corrispondenza di batch con esempi positivi
-    #return -tf.div(tf.to_float(tf.size(y_pred)), tf.reduce_sum(tf.reciprocal(y_pred), keep_dims=True))
-    print("ciao")
+    y_pred = tf.Print(y_pred,[y_pred],"Pred")
     return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred)+tf.constant(1e-15), keep_dims=True))
-        #return -tf.div(tf.to_float(tf.size(y_pred)), tf.reduce_sum(tf.reciprocal(y_pred), keep_dims=True))
+
 
 
 def smooth(parameters,default_smooth_factor):

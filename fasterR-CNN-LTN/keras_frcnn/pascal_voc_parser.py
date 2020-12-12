@@ -17,16 +17,8 @@ def get_data(input_path):
 
 
 	print('Parsing annotation files')
-	ontology_dict ={}
-	root = []
 
-	with open('pascalPartOntology.csv') as f:
-		ontologyReader = csv.reader(f)
-		for row in ontologyReader:
-			ontology_dict[row[0]] = row[1:]
-			root.append(row[0])
-	partOf = None
-	partOf_code = None
+
 
 	for data_path in data_paths:
 
@@ -98,24 +90,8 @@ def get_data(input_path):
 					y2 = int(round(float(obj_bbox.find('ymax').text)))
 					difficulty = 0
 
-					if partOf != None:
-						if class_name.lower() in ontology_dict[partOf]:
-							annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty,'partOf':partOf_code})
-						else:
-							annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty,'partOf':None})
-							if class_name.lower() in root:
-								partOf = class_name.lower()
-								partOf_code = '{}_{}_{}_{}_{}'.format(class_name,x1,x2,y1,y2)
-							else:
-								partOf = None
-								partOf_code = None
-					else:
-						annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty,'partOf':None})
-						if class_name.lower() in root:
-							partOf = class_name.lower()
-							partOf_code = '{}_{}_{}_{}_{}'.format(class_name,x1,x2,y1,y2)
-								
-							
+	
+					annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty})
 				all_imgs.append(annotation_data)
 
 				if visualise:

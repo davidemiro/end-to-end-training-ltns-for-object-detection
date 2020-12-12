@@ -4,19 +4,43 @@ from keras.layers import Layer,Activation
 
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator, **kwargs):
+    def __init__(self,tnorm,aggregator,num_class, **kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm =tnorm
-        self.aggregator = aggregator   
+        self.aggregator = aggregator
+        self.num_class = num_class
+           
 
        
     def build(self, input_shape):
         super(Clause,self).build(input_shape)
     def compute_output_shape(self,inputShape):
         return [(1,1)]
-    def call(self, x, mask=None):
+    def call(self,input, mask=None):
+        x = input[0]
+        y = input[1]
+        m = input[2]
+        y = tf.boolean_mask(y,m)
+        
+        
+        
+        #y = tf.Print(y,[y],"y_{}".format(self.num_class))
+        
+        x = tf.math.multiply(y,x) + tf.math.multiply((1 - y),(1-x))
+        
+        #x = tf.Print(x,[x],"x_{}".format(self.num_class))
+        
+        pos = tf.constant([0.9 for i in range(16)])
+        neg = tf.constant([0.1 for i in range(16)])
+        
+        weight = tf.math.multiply(y,pos) + tf.math.multiply((1 - y),neg)
+        
+        #weight = tf.Print(weight,[weight],"weight_{}".format(self.num_class))
+        
 
-        x = tf.Print(x,[x],"X:")
+        result = x
+
+        
         if self.tnorm == "product":
             result = 1.0-tf.reduce_prod(1.0-x,1,keep_dims=True)
         if self.tnorm =="yager2":
@@ -32,7 +56,9 @@ class Clause(Layer):
         if self.aggregator == "gmean":
             return tf.exp(tf.mul(tf.reduce_sum(tf.log(result), keep_dims=True),tf.inv(tf.to_float(tf.size(result)))),name=label)
         if self.aggregator == "hmean":
-            return tf.div(tf.to_float(tf.size(result)),tf.reduce_sum(tf.reciprocal(result),keep_dims=True))
+            h = tf.div(tf.reduce_sum(weight),tf.reduce_sum(tf.div(weight,result),keep_dims=True))
+           # h = tf.Print(h,[h],"h_{}".format(self.num_class))
+            return h
         if self.aggregator == "min":
             return tf.reduce_min(result, keep_dims=True)
 class Literal_Clause(Layer):
@@ -52,12 +78,18 @@ class Literal_Clause(Layer):
         y = tf.reshape(y,[32,1])
         
         pt = tf.math.multiply(y,x) + tf.math.multiply((1 - y),(1-x))
-        weight = tf.math.multiply(tf.math.pow((1 - pt),2),tf.math.log(pt))
+        pos = tf.math.multiply(tf.math.pow((1 - x),2),tf.math.log(x))
+        neg = tf.math.multiply(tf.math.pow(x,2),tf.math.log(1 - x))
+        weight = tf.math.multiply(pos,y) + tf.math.multiply(neg,(1 - y))
         #t - norm luk
         pt = tf.minimum(1.0,tf.reduce_sum(pt,1, keep_dims=True))
         
         #weighted hmean
-        return tf.div(tf.reduce_sum(weight),tf.reduce_sum(tf.div(weight,pt),keep_dims=True))
+        h = tf.div(tf.reduce_sum(weight),tf.reduce_sum(tf.div(weight,pt),keep_dims=True))
+        
+
+        
+        return h
 
    
         
