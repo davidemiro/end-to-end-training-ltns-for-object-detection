@@ -51,21 +51,26 @@ def defineGTNew(labels,num_classes,batch_size):
 def defineGT_pos_neg_input(labels,num_classes,batch_size):
 
 	y = np.zeros((1,1,(num_classes - 1)*2))
-	mask = []
+	mask_p = []
+	mask_n = []
 	for i in range(num_classes - 1):
 		mask_pos = np.zeros((batch_size,1))
 		mask_neg = np.zeros((batch_size,1))
 		num_pos = 0
+		
 		for j in range(batch_size):
 			label = np.argmax(labels[0,j,:])
+			
 			if label == i:
+				
 				y[0,0,i] = 1
-				y[0,0,i+1] = 1
+				y[0,0,i+num_classes - 1] = 1
 				mask_pos[j,0] = 1
 				num_pos += 1
 
 		
 		num_neg = 0
+		
 
 		if num_pos > batch_size/2:
 			num_pos = batch_size - num_pos
@@ -75,10 +80,21 @@ def defineGT_pos_neg_input(labels,num_classes,batch_size):
 			if mask_pos[j,0] == 0:
 				mask_neg[j,0] = 1
 				num_neg +=1
+		
+		if num_pos == 0:
+			j = randint(0,batch_size - 1)
+			k = randint(0,batch_size - 1)
+			while j != k:
+				k = randint(0,batch_size - 1)
+				
+			mask_pos[j,0] = 1
+			mask_neg[k,0] = 1
+		
 			
-		mask.append(mask_pos == 1)
-		mask.append(mask_neg == 1)	 
-	return y,mask
+
+		mask_p.append(np.expand_dims(mask_pos == 1,axis=0))
+		mask_n.append(np.expand_dims(mask_neg == 1,axis=0))	 
+	return y,mask_p + mask_n
 
 sys.setrecursionlimit(40000)
 
@@ -114,7 +130,8 @@ else:
 	raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
 # pass the settings from the command line, and persist them in the config object
-C = config.Config()
+
+
 
 C.use_horizontal_flips = bool(options.horizontal_flips)
 C.use_vertical_flips = bool(options.vertical_flips)
@@ -222,7 +239,7 @@ roi_input = Input(shape=(None, 4))
 
 Y_b = [Input(shape=(C.num_rois,1)) for i in range(len(classes_count) - 1)]
 
-mask =[Input(shape=(C.num_rois,1)) for i in range(len(classes_count) - 1)]
+mask =[Input(shape=(C.num_rois,1)) for i in range((len(classes_count) - 1)*2)]
 
 
 
@@ -232,9 +249,9 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 # define the RPN, built on the base layers
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
-classifier = nn.classifierRegressionNewClause(shared_layers, roi_input,C.num_rois, len(classes_count),Y_b,mask,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3],trainable=True)
+classifier = nn.classifierRegressionNewLiteral(shared_layers, roi_input,C.num_rois, len(classes_count),mask,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3],trainable=True)
 model_rpn = Model(img_input, rpn[:2])
-model_classifier = Model([img_input, roi_input]+Y_b+mask, classifier)
+model_classifier = Model([img_input, roi_input]+mask, classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
@@ -277,7 +294,7 @@ for epoch_num in range(num_epochs):
 
 	while True:
 		try:
-			log_file = open('losses_12_12_1.txt','a')
+			log_file = open('losses_13_12_1.txt','a')
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor))/len(rpn_accuracy_rpn_monitor)
@@ -338,9 +355,10 @@ for epoch_num in range(num_epochs):
 					sel_samples = random.choice(neg_samples)
 				else:
 					sel_samples = random.choice(pos_samples)
-			y_b,y,mask = defineGTNew(Y1[:, sel_samples, :],len(class_mapping), C.num_rois)
-			
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]]+y_b+mask, [Y2[:, sel_samples, :],y])
+
+			y,mask = defineGT_pos_neg_input(Y1[:, sel_samples, :],len(class_mapping),C.num_rois)
+
+			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]]+mask, [Y2[:, sel_samples, :],y])
 			
 
 			losses[iter_num, 0] = loss_rpn[1]
@@ -392,8 +410,8 @@ for epoch_num in range(num_epochs):
 				if curr_loss < best_loss:
 					if C.verbose:
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
-					model_classifier.save_weights('model_classifier_12_12_1.hdf5')
-					model_rpn.save_weights('model_rpn_12_12_1.hdf5')
+					model_classifier.save_weights('model_classifier_13_12_1.hdf5')
+					model_rpn.save_weights('model_rpn_13_12_1.hdf5')
 					best_loss = curr_loss
 					
 

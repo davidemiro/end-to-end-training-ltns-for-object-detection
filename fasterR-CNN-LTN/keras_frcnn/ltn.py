@@ -68,8 +68,7 @@ class Predicate(Layer):
 
 
 def ltn_loss(y_true,y_pred):
-    y_pred = tf.Print(y_pred,[y_pred],"Pred")
-    return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred)+tf.constant(1e-15), keep_dims=True))
+    return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred), keep_dims=True)+tf.constant(1e-15))
 
 
 

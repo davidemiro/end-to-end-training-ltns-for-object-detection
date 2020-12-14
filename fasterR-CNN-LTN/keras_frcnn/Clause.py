@@ -91,7 +91,45 @@ class Literal_Clause(Layer):
         
         return h
 
-   
+class Clause_v1(Layer):
+    
+    def __init__(self,tnorm,aggregator,num_class, **kwargs):
+        super(Clause_v1,self).__init__(**kwargs)
+        self.tnorm =tnorm
+        self.aggregator = aggregator
+        self.num_class = num_class
+           
+
+       
+    def build(self, input_shape):
+        super(Clause_v1,self).build(input_shape)
+    def compute_output_shape(self,inputShape):
+        return [(1,1)]
+    def call(self,x, mask=None):
+
+    
+        
+
+        
+        if self.tnorm == "product":
+            result = 1.0-tf.reduce_prod(1.0-x,1,keep_dims=True)
+        if self.tnorm =="yager2":
+            result = tf.minimum(1.0,tf.sqrt(tf.reduce_sum(tf.square(x),1, keep_dims=True)))
+        if self.tnorm =="luk":
+            result = tf.minimum(1.0,tf.reduce_sum(x,1, keep_dims=True))
+        if self.tnorm == "goedel":
+            result = tf.reduce_max(x,1,keep_dims=True,name=label)
+        if self.aggregator == "product":
+            return tf.reduce_prod(result,keep_dims=True)
+        if self.aggregator == "mean":
+            return tf.reduce_mean(result,keep_dims=True,name=label)
+        if self.aggregator == "gmean":
+            return tf.exp(tf.mul(tf.reduce_sum(tf.log(result), keep_dims=True),tf.inv(tf.to_float(tf.size(result)))),name=label)
+        if self.aggregator == "hmean":
+            h = tf.div(tf.to_float(tf.size(result)),tf.reduce_sum(tf.reciprocal(result),keep_dims=True))
+            return h
+        if self.aggregator == "min":
+            return tf.reduce_min(result, keep_dims=True)
         
         
         
