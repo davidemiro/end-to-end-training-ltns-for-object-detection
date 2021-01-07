@@ -20,6 +20,8 @@ class Predicate(Layer):
         label = self.name
         layers = self.k
 
+
+
         self.up = self.add_weight(name='up'+self.name, # 1 x k
                                   shape = (self.k,1),
                                   initializer='ones',
@@ -37,6 +39,7 @@ class Predicate(Layer):
                                   shape = (1,self.k), 
                                   initializer= 'ones', 
                                   trainable = True)
+        self.bp = self.bp*-1
 
       
 
@@ -51,6 +54,7 @@ class Predicate(Layer):
         #x = tf.Print(x,[x],"x:")
         X = tf.squeeze(x)
         #X = tf.Print(X,[X],"X:")
+        #X = x
         XW = tf.matmul(tf.tile(tf.expand_dims(X, 0), [self.k, 1, 1]), self.Wp)
 #        XW = tf.Print(XW,[XW],"XW:")
         XWX = tf.squeeze(tf.matmul(tf.expand_dims(X, 1), tf.transpose(XW, [1, 2, 0])))
@@ -67,8 +71,16 @@ class Predicate(Layer):
 
 
 
-def ltn_loss(y_true,y_pred):
-    return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred), keep_dims=True)+tf.constant(1e-15))
+def ltn_loss(type,weight):
+    def ltn_loss(y_true,y_pred):
+        if type == 'hmean':
+            return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred), keep_dims=True)+tf.constant(1e-15))
+        elif type == 'sum':
+            return tf.reduce_sum(tf.math.multiply(y_true,y_pred), keep_dims=True)*weight
+        else:
+            return None
+    return ltn_loss
+
 
 
 
