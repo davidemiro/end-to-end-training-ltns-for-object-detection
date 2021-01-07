@@ -1,6 +1,7 @@
 from __future__ import division
 import random
 import pprint
+import os
 import sys
 import time
 import numpy as np
@@ -19,82 +20,67 @@ from keras.utils import generic_utils
 from random import randint
 
 ltn_batch = 16
-def defineGTNew(labels,num_classes,batch_size):
+
+
+def defineGT(labels, num_classes, batch_size,class_x,class_mapping):
 	y_l = []
-	y = np.zeros((1,1,num_classes - 1))
-	mask = []
+	y = np.zeros((1, 1, num_classes - 1))
+	class_y = {k: 0 for k in cls}
 	for i in range(num_classes - 1):
-		y_i = np.zeros((batch_size,1))
-
-		mask_i = np.zeros((batch_size,1))
-		num_pos = 0
+		y_i = np.zeros((batch_size, 1))
 		for j in range(batch_size):
-			label = np.argmax(labels[0,j,:])
+			label = np.argmax(labels[0, j, :])
 			if label == i:
-				y_i[j,0] = 1
-				y[0,0,i] = 1
-				if num_pos < ltn_batch:
-					mask_i[j,0] = 1
-				num_pos += 1
+				y_i[j, 0] = 1
+				y[0, 0, i] = 1
+				class_x[class_mapping[label]] += 1
+				class_y[class_mapping[label]] += 1
+		y_l.append(np.expand_dims(y_i, axis=0))
+	return y_l, y , class_x, class_y
 
-		while num_pos < ltn_batch :
-			j = randint(0,batch_size - 1)
-			if mask_i[j,0] == 0:
-				mask_i[j,0] = 1
-				num_pos +=1
-			j+=1
-		mask.append(np.expand_dims(mask_i == 1,axis=0))
 
-		y_l.append(np.expand_dims(y_i,axis=0))
-	return y_l,y,mask
-
-def defineGT_pos_neg_input(labels,num_classes,batch_size):
-
-	y = np.zeros((1,1,(num_classes - 1)*2))
+def defineGT_pos_neg_input(labels, num_classes, batch_size):
+	y = np.zeros((1, 1, (num_classes - 1) * 2))
 	mask_p = []
 	mask_n = []
 	for i in range(num_classes - 1):
-		mask_pos = np.zeros((batch_size,1))
-		mask_neg = np.zeros((batch_size,1))
+		mask_pos = np.zeros((batch_size, 1))
+		mask_neg = np.zeros((batch_size, 1))
 		num_pos = 0
-		
+
 		for j in range(batch_size):
-			label = np.argmax(labels[0,j,:])
-			
+			label = np.argmax(labels[0, j, :])
+
 			if label == i:
-				
-				y[0,0,i] = 1
-				y[0,0,i+num_classes - 1] = 1
-				mask_pos[j,0] = 1
+				y[0, 0, i] = 1
+				y[0, 0, i + num_classes - 1] = 1
+				mask_pos[j, 0] = 1
 				num_pos += 1
 
-		
 		num_neg = 0
-		
 
-		if num_pos > batch_size/2:
+		if num_pos > batch_size / 2:
 			num_pos = batch_size - num_pos
 
 		while num_neg < num_pos:
-			j = randint(0,batch_size - 1)
-			if mask_pos[j,0] == 0:
-				mask_neg[j,0] = 1
-				num_neg +=1
-		
-		if num_pos == 0:
-			j = randint(0,batch_size - 1)
-			k = randint(0,batch_size - 1)
-			while j != k:
-				k = randint(0,batch_size - 1)
-				
-			mask_pos[j,0] = 1
-			mask_neg[k,0] = 1
-		
-			
+			j = randint(0, batch_size - 1)
+			if mask_pos[j, 0] == 0:
+				mask_neg[j, 0] = 1
+				num_neg += 1
 
-		mask_p.append(np.expand_dims(mask_pos == 1,axis=0))
-		mask_n.append(np.expand_dims(mask_neg == 1,axis=0))	 
-	return y,mask_p + mask_n
+		if num_pos == 0:
+			j = randint(0, batch_size - 1)
+			k = randint(0, batch_size - 1)
+			while j != k:
+				k = randint(0, batch_size - 1)
+
+			mask_pos[j, 0] = 1
+			mask_neg[k, 0] = 1
+
+		mask_p.append(np.expand_dims(mask_pos == 1, axis=0))
+		mask_n.append(np.expand_dims(mask_neg == 1, axis=0))
+	return y, mask_p + mask_n
+
 
 sys.setrecursionlimit(40000)
 
@@ -102,26 +88,37 @@ parser = OptionParser()
 
 parser.add_option("-p", "--path", dest="train_path", help="Path to training data.")
 parser.add_option("-o", "--parser", dest="parser", help="Parser to use. One of simple or pascal_voc",
-				default="simple")
-parser.add_option("-n", "--num_rois", type="int", dest="num_rois", help="Number of RoIs to process at once.", default=32)
-parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.", default='resnet50')
-parser.add_option("--hf", dest="horizontal_flips", help="Augment with horizontal flips in training. (Default=false).", action="store_true", default=False)
-parser.add_option("--vf", dest="vertical_flips", help="Augment with vertical flips in training. (Default=false).", action="store_true", default=False)
-parser.add_option("--rot", "--rot_90", dest="rot_90", help="Augment with 90 degree rotations in training. (Default=false).",
+				  default="simple")
+parser.add_option("-n", "--num_rois", type="int", dest="num_rois", help="Number of RoIs to process at once.",
+				  default=32)
+parser.add_option("--network", dest="network", help="Base network to use. Supports vgg or resnet50.",
+				  default='resnet50')
+parser.add_option("--hf", dest="horizontal_flips", help="Augment with horizontal flips in training. (Default=false).",
+				  action="store_true", default=False)
+parser.add_option("--vf", dest="vertical_flips", help="Augment with vertical flips in training. (Default=false).",
+				  action="store_true", default=False)
+parser.add_option("--rot", "--rot_90", dest="rot_90",
+				  help="Augment with 90 degree rotations in training. (Default=false).",
 				  action="store_true", default=False)
 parser.add_option("--num_epochs", type="int", dest="num_epochs", help="Number of epochs.", default=2000)
 parser.add_option("--config_filename", dest="config_filename", help=
-				"Location to store all the metadata related to the training (to be used when testing).",
-				default="config.pickle")
-parser.add_option("--output_weight_path", dest="output_weight_path", help="Output path for weights.", default='./model_frcnn.hdf5')
-parser.add_option("--input_weight_path", dest="input_weight_path", help="Input path for weights. If not specified, will try to load default weights provided by keras.")
+"Location to store all the metadata related to the training (to be used when testing).",
+				  default="config.pickle")
+parser.add_option("--output_weight_path", dest="output_weight_path", help="Output path for weights.",
+				  default='./model_frcnn.hdf5')
+parser.add_option("--input_weight_path", dest="input_weight_path",
+				  help="Input path for weights. If not specified, will try to load default weights provided by keras.")
+
+parser.add_option("--name", dest="name", help="Suffix of the weights", default="")
 
 (options, args) = parser.parse_args()
 
-if not options.train_path:   # if filename is not given
+
+
+if not options.train_path:  # if filename is not given
 	parser.error('Error: path to training data must be specified. Pass --path to command line')
 
-options.parser ='pascal_voc'
+options.parser = 'pascal_voc'
 if options.parser == 'pascal_voc':
 	from keras_frcnn.pascal_voc_parser import get_data
 elif options.parser == 'simple':
@@ -131,7 +128,7 @@ else:
 
 # pass the settings from the command line, and persist them in the config object
 
-
+C = config.Config()
 
 C.use_horizontal_flips = bool(options.horizontal_flips)
 C.use_vertical_flips = bool(options.vertical_flips)
@@ -146,14 +143,15 @@ if options.network == 'vgg':
 	from keras_frcnn import vgg as nn
 elif options.network == 'resnet50':
 	from keras_frcnn import resnet as nn
+
 	C.network = 'resnet50'
-elif options.network  == 'resnet101':
-    from keras_frcnn import resnet101 as nn
-    C.network = 'resnet101'
+elif options.network == 'resnet101':
+	from keras_frcnn import resnet101 as nn
+
+	C.network = 'resnet101'
 else:
 	print('Not a valid model')
 	raise ValueError
-
 
 # check if weight path was passed via command line
 if options.input_weight_path:
@@ -165,15 +163,23 @@ else:
 all_imgs, classes_count, class_mapping = get_data(options.train_path)
 
 
+cls = sorted(class_mapping.keys())
+class_mapping = {cls[i]:i for i in range(len(cls))}
+
+class_x ={k:0 for k in cls}
+class_k ={k:0 for k in cls}
 
 if 'bg' not in classes_count:
 	classes_count['bg'] = 0
 	class_mapping['bg'] = len(class_mapping)
-class_mapping = C.class_mapping
 
-print(C.class_mapping)
+#class_mapping = {0: 'sheep', 1: 'horse', 2: 'bicycle', 3: 'aeroplane', 4: 'cow', 5: 'sofa', 6: 'bus', 7: 'dog', 8: 'cat', 9: 'person', 10: 'train', 11: 'diningtable', 12: 'bottle', 13: 'car', 14: 'pottedplant', 15: 'tvmonitor', 16: 'chair', 17: 'bird', 18: 'boat', 19: 'motorbike', 20: 'bg'}
+C.class_mapping = class_mapping
+print(class_mapping)
 
-inv_map = {v: k for k, v in class_mapping.items()}
+
+
+#class_mapping = {v: k for k, v in class_mapping.items()}
 
 print('Training images per class:')
 pprint.pprint(classes_count)
@@ -182,66 +188,37 @@ print('Num classes (including bg) = {}'.format(len(classes_count)))
 config_output_filename = options.config_filename
 
 with open(config_output_filename, 'wb') as config_f:
-	pickle.dump(C,config_f)
-	print('Config has been written to {}, and can be loaded when testing to ensure correct results'.format(config_output_filename))
+	pickle.dump(C, config_f)
+	print('Config has been written to {}, and can be loaded when testing to ensure correct results'.format(
+		config_output_filename))
 
 random.shuffle(all_imgs)
 
 num_imgs = len(all_imgs)
 
 train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
-
-occ = {}
-
-for img in train_imgs:
-	a = {}
-	for b in img['bboxes']:
-		if b['class'] not in a:
-			a[b['class']] = 1
-		else:
-			a[b['class']] += 1
-	for k,v in a.items():
-		if k not in occ or occ[k] < v:
-			occ[k] = v
-print(occ)
-
-		
 val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
 print('Num train samples {}'.format(len(train_imgs)))
 print('Num val samples {}'.format(len(val_imgs)))
 
-
-data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, nn.get_img_output_length, K.image_dim_ordering(), mode='train')
-data_gen_val = data_generators.get_anchor_gt(val_imgs, classes_count, C, nn.get_img_output_length,K.image_dim_ordering(), mode='val')
+data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, nn.get_img_output_length,
+											   K.image_dim_ordering(), mode='train')
+data_gen_val = data_generators.get_anchor_gt(val_imgs, classes_count, C, nn.get_img_output_length,
+											 K.image_dim_ordering(), mode='val')
 
 if K.image_dim_ordering() == 'th':
 	input_shape_img = (3, None, None)
 else:
 	input_shape_img = (None, None, 3)
-	
-'''
-Y_b = Input(shape=(C.num_rois,1))
-ltn_input = Input(shape=(C.num_rois,1))
 
-clause_try = nn.clause_try(ltn_input,Y_b)
-
-X = np.array([0.1 for i in range(32)]).reshape(1,32,1)
-Y = np.array([0 for i in range(32)]).reshape(1,32,1)
-Y[0,0,0] = 1
-
-
-model_prova = Model([ltn_input,Y_b],clause_try)
-'''
 
 img_input = Input(shape=input_shape_img)
 roi_input = Input(shape=(None, 4))
 
-Y_b = [Input(shape=(C.num_rois,1)) for i in range(len(classes_count) - 1)]
+Y_b = [Input(shape=(C.num_rois, 1)) for i in range(len(classes_count) - 1)]
 
-mask =[Input(shape=(C.num_rois,1)) for i in range((len(classes_count) - 1)*2)]
-
-
+mask = [Input(shape=(C.num_rois, 1)) for i in range((len(classes_count) - 1) * 2)]
 
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
@@ -249,14 +226,17 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 # define the RPN, built on the base layers
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
-classifier = nn.classifierRegressionNewLiteral(shared_layers, roi_input,C.num_rois, len(classes_count),mask,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3],trainable=True)
+classifier = nn.classifier(shared_layers, roi_input, C.num_rois, len(classes_count), Y_b, C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3], trainable=True)
 model_rpn = Model(img_input, rpn[:2])
-model_classifier = Model([img_input, roi_input]+mask, classifier)
+model_classifier = Model([img_input, roi_input] + Y_b, classifier)
+# this is a model that holds both the RPN and the classifier, used to load/save weights for the models
+model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
+print(options.name)
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
+	model_classifier.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -264,9 +244,13 @@ except:
 optimizer = Adam(lr=1e-5)
 optimizer_classifier = Adam(lr=1e-3)
 
-print(len(classes_count))
+print(classes_count)
+
+
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
-model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_regr(len(classes_count)-1),ltn.ltn_loss])
+model_classifier.compile(optimizer=optimizer_classifier,
+						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])
+model_all.compile(optimizer='sgd', loss='mae')
 
 
 
@@ -287,31 +271,32 @@ print('Starting training')
 vis = True
 
 for epoch_num in range(num_epochs):
-	
+
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
 
 	while True:
 		try:
-			log_file = open('losses_13_12_1.txt','a')
+			log_file = open('loes_{}.txt'.format(options.name), 'a')
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
-				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor))/len(rpn_accuracy_rpn_monitor)
+				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
 				rpn_accuracy_rpn_monitor = []
-				print('Average number of overlapping bounding boxes from RPN = {} for {} previous iterations'.format(mean_overlapping_bboxes, epoch_length))
+				print('Average number of overlapping bounding boxes from RPN = {} for {} previous iterations'.format(
+					mean_overlapping_bboxes, epoch_length))
 				if mean_overlapping_bboxes == 0:
-					print('RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
+					print(
+						'RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
 
 			X, Y, img_data = next(data_gen_train)
-			
-
 
 			loss_rpn = model_rpn.train_on_batch(X, Y)
 
 			P_rpn = model_rpn.predict_on_batch(X)
 
-			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
+			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7,
+									   max_boxes=300)
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
 			X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data, C, class_mapping)
 
@@ -332,19 +317,21 @@ for epoch_num in range(num_epochs):
 				pos_samples = pos_samples[0]
 			else:
 				pos_samples = []
-			
+
 			rpn_accuracy_rpn_monitor.append(len(pos_samples))
 			rpn_accuracy_for_epoch.append((len(pos_samples)))
 
 			if C.num_rois > 1:
-				if len(pos_samples) < C.num_rois//2:
+				if len(pos_samples) < C.num_rois // 2:
 					selected_pos_samples = pos_samples.tolist()
 				else:
-					selected_pos_samples = np.random.choice(pos_samples, C.num_rois//2, replace=False).tolist()
+					selected_pos_samples = np.random.choice(pos_samples, C.num_rois // 2, replace=False).tolist()
 				try:
-					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=False).tolist()
+					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples),
+															replace=False).tolist()
 				except:
-					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples), replace=True).tolist()
+					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples),
+															replace=True).tolist()
 
 				sel_samples = selected_pos_samples + selected_neg_samples
 			else:
@@ -356,47 +343,58 @@ for epoch_num in range(num_epochs):
 				else:
 					sel_samples = random.choice(pos_samples)
 
-			y,mask = defineGT_pos_neg_input(Y1[:, sel_samples, :],len(class_mapping),C.num_rois)
 
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]]+mask, [Y2[:, sel_samples, :],y])
-			
+			y_b,y,class_x,class_y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois,class_x,{v: k for k, v in class_mapping.items()})
+			'''
+			print(class_y)
+			print(class_x)
+
+			for k,v in class_y.items():
+				if v > 0:
+					class_k[k] +=1
+			print(class_k)
+			'''
+
+
+
+
+
+
+			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]]+y_b, [Y2[:, sel_samples, :],y])
+
 
 			losses[iter_num, 0] = loss_rpn[1]
 			losses[iter_num, 1] = loss_rpn[2]
 
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
-			
 
-
-
-			
-			
 			for i in range(4):
 				log_file.write('{}\t'.format(np.mean(losses[:iter_num, i])))
 			log_file.write('\n')
-			
+
 			log_file.close()
 
 
 			iter_num += 1
 
-			progbar.update(iter_num, [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
-									  ('detector_regr', np.mean(losses[:iter_num, 2])), ('ltn', np.mean(losses[:iter_num, 3]))])
+			progbar.update(iter_num,
+						   [('rpn_cls', np.mean(losses[:iter_num, 0])), ('rpn_regr', np.mean(losses[:iter_num, 1])),
+							('detector_regr', np.mean(losses[:iter_num, 2])), ('ltn', np.mean(losses[:iter_num, 3]))])
 
 			if iter_num == epoch_length:
 				loss_rpn_cls = np.mean(losses[:, 0])
 				loss_rpn_regr = np.mean(losses[:, 1])
 				loss_ltn = np.mean(losses[:, 2])
 				loss_regr = np.mean(losses[:, 3])
-	
 
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
 				rpn_accuracy_for_epoch = []
 
 				if C.verbose:
-					print('Mean number of bounding boxes from RPN overlapping ground truth boxes: {}'.format(mean_overlapping_bboxes))
-					#print('Classifier accuracy for bounding boxes from RPN: {}'.format(class_acc))
+					print('Mean number of bounding boxes from RPN overlapping ground truth boxes: {}'.format(
+						mean_overlapping_bboxes))
+					# print('Classifier accuracy for bounding boxes from RPN: {}'.format(class_acc))
 					print('Loss RPN classifier: {}'.format(loss_rpn_cls))
 					print('Loss RPN regression: {}'.format(loss_rpn_regr))
 					print('Loss ltn: {}'.format(loss_ltn))
@@ -409,11 +407,9 @@ for epoch_num in range(num_epochs):
 
 				if curr_loss < best_loss:
 					if C.verbose:
-						print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
-					model_classifier.save_weights('model_classifier_13_12_1.hdf5')
-					model_rpn.save_weights('model_rpn_13_12_1.hdf5')
+						print('Total loss decreased from {} to {}, saving weights'.format(best_loss, curr_loss))
+					model_all.save_weights('model_{}.hdf5'.format(options.name))
 					best_loss = curr_loss
-					
 
 				break
 
@@ -421,4 +417,3 @@ for epoch_num in range(num_epochs):
 			print('Exception: {}'.format(e))
 			continue
 
-print('Training complete, exiting.')
