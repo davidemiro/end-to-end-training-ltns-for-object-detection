@@ -151,7 +151,7 @@ else:
 
 all_imgs, classes_count, class_mapping = get_data(options.train_path)
 
-cls = list(class_mapping.keys())
+cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
 
 if 'bg' not in classes_count:
@@ -161,6 +161,7 @@ if 'bg' not in classes_count:
 
 
 C.class_mapping = class_mapping
+print(C.class_mapping)
 
 inv_map = {v: k for k, v in class_mapping.items()}
 
