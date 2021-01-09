@@ -264,7 +264,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
     for i in range(nb_classes - 1):
-        x = ltn.Predicate(num_features=nb_classes + 4, k=6, i=i)(out_class)
+        x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
 
         x = Clause(tnorm=tnorm, aggregator=aggregator, num_class=i)([x, Y[i]])
       #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
