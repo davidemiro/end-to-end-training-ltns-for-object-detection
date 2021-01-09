@@ -206,7 +206,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','logsum','softmax',Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_los_logsum','softmax',Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
@@ -221,8 +221,8 @@ except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
 
-optimizer = Adam(lr=1e-4)
-optimizer_classifier = Adam(lr=1e-4)
+optimizer = Adam(lr=1e-5)
+optimizer_classifier = Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])

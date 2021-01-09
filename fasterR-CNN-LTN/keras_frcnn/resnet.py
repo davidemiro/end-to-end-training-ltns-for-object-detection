@@ -261,10 +261,10 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
-    tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
+   # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
     for i in range(nb_classes - 1):
-        x = ltn.Predicate(num_features=nb_classes + 4, k=6, i=i)(tensors[i])
+        x = ltn.Predicate(num_features=nb_classes + 4, k=6, i=i)(out_class)
 
         x = Clause(tnorm=tnorm, aggregator=aggregator, num_class=i)([x, Y[i]])
       #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
