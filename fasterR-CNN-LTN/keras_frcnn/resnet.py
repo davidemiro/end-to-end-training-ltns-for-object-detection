@@ -22,7 +22,7 @@ from keras_frcnn.Clause import Clause
 import tensorflow as tf
 
 import keras
-from imaplib import Literal
+
 
 def clause_Layer(input):
     
@@ -242,7 +242,7 @@ def rpn(base_layers,num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes ,Y,std_x, std_y, std_w, std_h,trainable=False):
+def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation, Y, std_x, std_y, std_w, std_h):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -258,7 +258,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,Y,std_x, std_y, st
 
     out = TimeDistributed(Flatten())(out)
 
-    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
     tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
@@ -266,16 +266,16 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,Y,std_x, std_y, st
     for i in range(nb_classes - 1):
         x = ltn.Predicate(num_features=nb_classes + 4, k=6, i=i)(tensors[i])
 
-        x = Clause(tnorm='luk', aggregator='focal_los_logsum', num_class=i)([x, Y[i]])
-        x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
+        x = Clause(tnorm=tnorm, aggregator=aggregator, num_class=i)([x, Y[i]])
+      #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
         output.append(x)
 
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
-  #  out_ltn = keras.layers.Lambda(lambda x: tf.Print(x,[x,x.shape],"ks"))(out_ltn)
+    #out_ltn = keras.layers.Lambda(lambda x: tf.Print(x,[x,x.shape],"ks"))(out_ltn)
     return [out_regr,out_ltn]
 
-def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,std_x, std_y, std_w, std_h,trainable=False):
+def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,activation,std_x, std_y, std_w, std_h,trainable=False):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -291,7 +291,7 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,std_x, std
 
     out = TimeDistributed(Flatten())(out)
 
-    out_class = TimeDistributed(Dense(nb_classes, activation='softmax', kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
     tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
@@ -302,6 +302,6 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,std_x, std
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
 
-    return [out_ltn,out_regr]
+    return [out_regr,out_ltn]
 
 

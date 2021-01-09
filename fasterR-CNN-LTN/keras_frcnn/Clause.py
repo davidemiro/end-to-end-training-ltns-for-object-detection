@@ -28,13 +28,14 @@ class Clause(Layer):
             y = input[1]
 
         #literal
-       # x = tf.Print(x, [x,tf.shape(x)], "Prediction_{}".format(self.num_class))
-       # y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class))
+        #x = tf.Print(x, [x,tf.shape(x)], "Prediction_{}".format(self.num_class))
+        #y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class))
         x = tf.reshape(x,(32,1))
         y = tf.reshape(y,(32,1))
         pt = tf.math.multiply(y, x) + tf.math.multiply((1 - y), (1 - x))
        # x_ = tf.Print(x_,[x_,tf.shape(x_)],"Litteral_{}".format(self.num_class))
         pt = tf.reshape(pt,(32,1))
+        #pt = tf.Print(pt, [pt, tf.shape(pt)], "Literal_{}".format(self.num_class))
         if self.tnorm == "product":
             result = 1.0-tf.reduce_prod(1.0-pt,1,keep_dims=True)
         if self.tnorm =="yager2":
@@ -56,10 +57,10 @@ class Clause(Layer):
             return tf.reduce_min(result, keep_dims=True)
         if self.aggregator == "logsum":
            # result =tf.Print(result, [result,tf.shape(result)], "result_{}".format(self.num_class))
-            h = tf.reduce_sum(tf.log(pt), keep_dims=True,name="Clause_{}".format(self.num_class))
+            h = tf.negative(tf.reduce_sum(tf.log(pt), keep_dims=True,name="Clause_{}".format(self.num_class)))
             #print(self.num_class)
-           # h = tf.Print(h, [h], "Clause_{}".format(self.num_class))
-            return -h
+            #h = tf.Print(h, [h,tf.shape(h)], "Clause_{}".format(self.num_class))
+            return h
         if self.aggregator == "focal_los_logsum":
             gamma = 2
             fl = tf.negative(tf.math.multiply(tf.math.pow((1 - pt), gamma), tf.math.log(pt)))
