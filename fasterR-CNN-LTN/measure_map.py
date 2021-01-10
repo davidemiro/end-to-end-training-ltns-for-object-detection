@@ -102,7 +102,7 @@ else:
 
 config_output_filename = 'config_'+options.name+'.pickle'
 
-with open(config_output_filename, 'r') as f_in:
+with open(config_output_filename, 'rb') as f_in:
     C = pickle.load(f_in)
 
 # turn off any data augmentation at test time
@@ -151,7 +151,7 @@ class_mapping = C.class_mapping
 if 'bg' not in class_mapping:
     class_mapping['bg'] = len(class_mapping)
 
-class_mapping = {v: k for k, v in class_mapping.iteritems()}
+class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
 C.num_rois = int(options.num_rois)
@@ -174,7 +174,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'softmax', C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3],trainable=True)
+classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'linear', C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3],trainable=True)
 
 model_rpn = Model(img_input, rpn_layers)
 model_classifier_only = Model([feature_map_input, roi_input], classifier)
