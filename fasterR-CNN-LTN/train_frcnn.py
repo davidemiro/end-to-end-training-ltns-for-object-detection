@@ -216,22 +216,22 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
+	model_classifier.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
 
 optimizer = Adam(lr=1e-5)
-optimizer_classifier = Adam(lr=1e-5)
+optimizer_classifier = Adam(lr=1e-4)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 1000
-num_epochs = 80
-iter_num = 0
+num_epochs = 160
+iter_num = 80
 
 
 losses = np.zeros((epoch_length, 5))
@@ -241,14 +241,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = np.Inf
+best_loss = 4.13874380365
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(num_epochs):
+for epoch_num in range(80,num_epochs):
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
