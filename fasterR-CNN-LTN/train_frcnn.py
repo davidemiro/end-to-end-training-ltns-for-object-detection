@@ -17,7 +17,6 @@ from keras_frcnn import losses as losses
 import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
 import keras_frcnn.ltn as ltn
-import  neptune
 
 
 def defineGT(labels, num_classes, batch_size):
@@ -105,7 +104,6 @@ parser.add_option("--input_weight_path", dest="input_weight_path",
 				  help="Input path for weights. If not specified, will try to load default weights provided by keras.")
 
 parser.add_option("--name", dest="name", help="Name to give at model")
-parser.add_option("--neptune_token",dest="api_token",default="")
 
 (options, args) = parser.parse_args()
 
@@ -128,7 +126,6 @@ C.rot_90 = bool(options.rot_90)
 
 C.model_path = options.output_weight_path
 C.num_rois = int(options.num_rois)
-C.name = options.name
 
 if options.network == 'vgg':
 	C.network = 'vgg'
@@ -210,7 +207,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk',"focal_los_logsum",'linear',Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_los_logsum','linear',Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
@@ -219,27 +216,21 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
-	model_classifier.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
 
-# ***NEPTUNE**
-parameters = C.__dict__
-neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
-exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,C.rpn_learning_rate,C.classifier_learning_rate)
-
-neptune.create_experiment(name=exp_name,params=parameters)
 optimizer = Adam(lr=1e-5)
-optimizer_classifier = Adam(lr=1e-5)
+optimizer_classifier = Adam(lr=1e-4)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])
 model_all.compile(optimizer='sgd', loss='mae')
 
-epoch_length = C.num_iterations
-num_epochs = C.num_epochs
+epoch_length = 1000
+num_epochs = 80
 iter_num = 0
 
 
@@ -264,7 +255,7 @@ for epoch_num in range(num_epochs):
 
 	while True:
 		try:
-			#log_file = open('losses_{}.txt'.format(options.name),'a')
+			log_file = open('losses_{}.txt'.format(options.name),'a')
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
@@ -338,12 +329,13 @@ for epoch_num in range(num_epochs):
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
 
+			iter_num += 1
 
-			neptune.log_metric('loss_rpn_classifier',np.mean(losses[:iter_num, 0]))
-			neptune.log_metric('loss_rpn_regression', np.mean(losses[:iter_num, 1]))
-			neptune.log_metric('loss_detector_regression', np.mean(losses[:iter_num, 2]))
-			neptune.log_metric('loss_ltn', np.mean(losses[:iter_num, 3]))
+			for i in range(4):
+				log_file.write('{}\t'.format(np.mean(losses[:iter_num, i])))
+			log_file.write('\n')
 
+			log_file.close()
 
 			iter_num += 1
 
