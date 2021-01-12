@@ -61,6 +61,7 @@ class Config:
 		self.k=6
 		self.rpn_optimizer ='Adam'
 		self.rpn_optimizer = 'Adam'
+		self.name =''
 		#location of pretrained weights for the base network 
 		# weight files can be found at:
 		# https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels_notop.h5

@@ -128,6 +128,7 @@ C.rot_90 = bool(options.rot_90)
 
 C.model_path = options.output_weight_path
 C.num_rois = int(options.num_rois)
+C.name = options.name
 
 if options.network == 'vgg':
 	C.network = 'vgg'
