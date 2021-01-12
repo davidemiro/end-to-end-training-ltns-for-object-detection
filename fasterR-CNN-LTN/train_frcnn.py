@@ -227,12 +227,12 @@ except:
 
 # ***NEPTUNE**
 parameters = C.__dict__
-neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
-exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,C.rpn_learning_rate,C.classifier_learning_rate)
+#neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
+#exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,C.rpn_learning_rate,C.classifier_learning_rate)
 
 neptune.create_experiment(name=exp_name,params=parameters)
-optimizer = Adam(lr=C.rpn_learning_rate)
-optimizer_classifier = Adam(lr=C.classifier_learning_rate)
+optimizer = Adam(lr=1e-5)
+optimizer_classifier = Adam(lr=1e-4)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])
@@ -338,11 +338,12 @@ for epoch_num in range(num_epochs):
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
 
+			'''
 			neptune.log_metric('loss_rpn_classifier',np.mean(losses[:iter_num, 0]))
 			neptune.log_metric('loss_rpn_regression', np.mean(losses[:iter_num, 1]))
 			neptune.log_metric('loss_detector_regression', np.mean(losses[:iter_num, 2]))
 			neptune.log_metric('loss_ltn', np.mean(losses[:iter_num, 3]))
-
+			'''
 
 			iter_num += 1
 
