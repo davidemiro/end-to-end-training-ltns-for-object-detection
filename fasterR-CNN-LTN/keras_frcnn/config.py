@@ -57,6 +57,10 @@ class Config:
 		self.num_iterations = 1000
 		self.aggregator = 'focal_los_logsum'
 		self.activation = 'activation'
+		self.tnorm ='luk'
+		self.k=6
+		self.rpn_optimizer ='Adam'
+		self.rpn_optimizer = 'Adam'
 		#location of pretrained weights for the base network 
 		# weight files can be found at:
 		# https://github.com/fchollet/deep-learning-models/releases/download/v0.2/resnet50_weights_th_dim_ordering_th_kernels_notop.h5

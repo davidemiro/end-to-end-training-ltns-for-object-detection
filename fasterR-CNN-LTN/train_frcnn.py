@@ -209,7 +209,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk',C.aggregator,C.activation,Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),C.tnorm,C.aggregator,C.activation,Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
@@ -226,7 +226,7 @@ except:
 
 # ***NEPTUNE**
 parameters = C.__dict__
-neptune.init('davidemiro/sandbox', api_token=options.api_token)
+neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
 exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,C.rpn_learning_rate,C.classifier_learning_rate)
 
 neptune.create_experiment(name=exp_name,params=parameters)
