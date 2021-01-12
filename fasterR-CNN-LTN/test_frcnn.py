@@ -141,7 +141,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'softmax', C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3],trainable=True)
+classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'linear', C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3],trainable=True)
 
 model_rpn = Model(img_input, rpn_layers)
 model_classifier_only = Model([feature_map_input, roi_input], classifier)
@@ -149,8 +149,8 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights(C.model_path, by_name=True)
-model_classifier.load_weights(C.model_path, by_name=True)
+model_rpn.load_weights('/Users/davidemiro/Desktop/model_focal_logsum_1_5_1_4_9_12_2.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/model_focal_logsum_1_5_1_4_9_12_2.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -159,7 +159,7 @@ all_imgs = []
 
 classes = {}
 
-bbox_threshold = 0.8
+bbox_threshold = 0.55
 
 visualise = True
 
@@ -195,7 +195,7 @@ for idx, img_data in enumerate(test_imgs):
 					  (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
 		cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
 
-	cv2.imwrite('/Users/davidemiro/Desktop/results/{}_gt.png'.format(img_name), img)
+	cv2.imwrite('/Users/davidemiro/Desktop/results_2/{}_gt.png'.format(img_name), img)
 
 	img = cv2.imread(filepath)
 
@@ -288,6 +288,6 @@ for idx, img_data in enumerate(test_imgs):
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
-	cv2.imshow('img', img)
-	cv2.waitKey(0)
+	cv2.imwrite('/Users/davidemiro/Desktop/results_2/{}.png'.format(img_name), img)
+
 # cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
