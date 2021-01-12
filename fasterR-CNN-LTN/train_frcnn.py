@@ -105,6 +105,8 @@ parser.add_option("--input_weight_path", dest="input_weight_path",
 
 parser.add_option("--name", dest="name", help="Name to give at model")
 
+parser.add_option("--neptune_token",dest="api_token",default="")
+
 (options, args) = parser.parse_args()
 
 if not options.train_path:  # if filename is not given
