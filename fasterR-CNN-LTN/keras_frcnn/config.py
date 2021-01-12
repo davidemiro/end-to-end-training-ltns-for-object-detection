@@ -56,7 +56,7 @@ class Config:
 		self.num_epochs = 240
 		self.num_iterations = 1000
 		self.aggregator = 'focal_los_logsum'
-		self.activation = 'activation'
+		self.activation = 'linear'
 		self.tnorm ='luk'
 		self.k=6
 		self.rpn_optimizer ='Adam'
