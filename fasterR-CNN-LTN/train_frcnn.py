@@ -7,6 +7,7 @@ import numpy as np
 from optparse import OptionParser
 import pickle
 import random
+import neptune
 
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
@@ -218,8 +219,8 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights("model_{}.hdf5".format(options.name), by_name=True)
+	model_classifier.load_weights("model_{}.hdf5".format(options.name), by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -238,7 +239,7 @@ model_classifier.compile(optimizer=optimizer_classifier,
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 1000
-num_epochs = 80
+num_epochs = 240
 iter_num = 0
 
 
@@ -249,21 +250,21 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = np.Inf
+best_loss = 6.42526756638
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(num_epochs):
+for epoch_num in range(80,num_epochs):
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
 
 	while True:
 		try:
-			log_file = open('losses_{}.txt'.format(options.name),'a')
+			#log_file = open('losses_{}.txt'.format(options.name),'a')
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
