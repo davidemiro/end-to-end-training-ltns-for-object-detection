@@ -50,7 +50,7 @@ class Config:
 		self.class_mapping = {'chair': 0, 'diningtable': 1, 'tvmonitor': 2, 'sofa': 3, 'cat': 4, 'sheep': 5, 'person': 6, 'bottle': 7, 'bird': 8, 'car': 9, 'bicycle': 10, 'boat': 11, 'cow': 12, 'horse': 13, 'dog': 14, 'aeroplane': 15, 'pottedplant': 16, 'motorbike': 17, 'train': 18, 'bus': 19, 'bg': 20}
 
 		self.rpn_learning_rate = 1e-5
-		self.classifier_learning_rate = 1e-4
+		self.classifier_learning_rate = 1e-5
 
 		self.num_epochs = 240
 		self.num_iterations = 1000

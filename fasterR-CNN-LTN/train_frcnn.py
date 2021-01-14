@@ -219,8 +219,8 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights("model_{}.hdf5".format(options.name), by_name=True)
-	model_classifier.load_weights("model_{}.hdf5".format(options.name), by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -228,11 +228,11 @@ except:
 # ***NEPTUNE**
 parameters = C.__dict__
 neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
-exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,C.rpn_learning_rate,C.classifier_learning_rate)
+exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,1e-5,1e-5)
 neptune.create_experiment(name=exp_name,params=parameters)
 
 optimizer = Adam(lr=1e-5)
-optimizer_classifier = Adam(lr=1e-4)
+optimizer_classifier = Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])
@@ -250,14 +250,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 6.42526756638
+best_loss = np.Inf
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(80,num_epochs):
+for epoch_num in range(num_epochs):
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
