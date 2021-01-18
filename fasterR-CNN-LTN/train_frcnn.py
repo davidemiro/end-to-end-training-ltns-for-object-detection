@@ -229,7 +229,7 @@ except:
 parameters = C.__dict__
 neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
 exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,1e-5,1e-5)
-neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/clause.py","keras_frcnn/renet.py","keras_frcnn/config.py"])
+neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/Clause.py","keras_frcnn/resnet.py","keras_frcnn/config.py"])
 
 
 optimizer = Adam(lr=1e-5)
