@@ -129,7 +129,7 @@ C.rot_90 = bool(options.rot_90)
 
 C.model_path = options.output_weight_path
 C.num_rois = int(options.num_rois)
-
+C.name = options.name
 if options.network == 'vgg':
 	C.network = 'vgg'
 	from keras_frcnn import vgg as nn
@@ -219,8 +219,8 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights('model_focal_logsum_neptune_2.hdf5', by_name=True)
+	model_classifier.load_weights('model_focal_logsum_neptune_2.hdf5', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -229,7 +229,8 @@ except:
 parameters = C.__dict__
 neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
 exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,1e-5,1e-5)
-neptune.create_experiment(name=exp_name,params=parameters)
+neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/clause.py","keras_frcnn/renet.py","keras_frcnn/config.py"])
+
 
 optimizer = Adam(lr=1e-5)
 optimizer_classifier = Adam(lr=1e-5)
@@ -239,7 +240,7 @@ model_classifier.compile(optimizer=optimizer_classifier,
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 1000
-num_epochs = 240
+num_epochs = 1000
 iter_num = 0
 
 
@@ -250,14 +251,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = np.Inf
+best_loss = 1.99
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(num_epochs):
+for epoch_num in range(230,num_epochs):
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
@@ -276,6 +277,8 @@ for epoch_num in range(num_epochs):
 						'RPN is not producing bounding boxes that overlap the ground truth boxes. Check RPN settings or keep training.')
 
 			X, Y, img_data = next(data_gen_train)
+
+
 
 			loss_rpn = model_rpn.train_on_batch(X, Y)
 
