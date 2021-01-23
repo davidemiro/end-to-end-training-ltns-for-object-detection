@@ -34,7 +34,7 @@ class Clause(Layer):
 
         #literal
         #x = tf.Print(x, [x,tf.shape(x)], "Prediction_{}".format(self.num_class))
-        y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class),summarize=20000)
+        #y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class),summarize=20000)
         x = tf.reshape(x,(32,1))
         y = tf.reshape(y,(32,1))
         pt = tf.math.multiply(y, x) + tf.math.multiply((1 - y), (1 - x))
@@ -68,9 +68,9 @@ class Clause(Layer):
             return h
         if self.aggregator == "focal_los_logsum":
             h = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
-            h = tf.Print(h, [h], "h_{}".format(self.num_class),summarize=20000)
+            #h = tf.Print(h, [h], "h_{}".format(self.num_class),summarize=20000)
             fl = tf.negative(self.alpha*h)
-            fl = tf.Print(fl, [fl], "fl_{}".format(self.num_class),summarize=20000)
+            #fl = tf.Print(fl, [fl], "fl_{}".format(self.num_class),summarize=20000)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
            # h = tf.Print(h, [h], "h_{}".format(self.num_class))
             return h

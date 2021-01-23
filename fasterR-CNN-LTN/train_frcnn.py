@@ -268,6 +268,7 @@ vis = True
 
 for epoch_num in range(num_epochs):
 
+
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
 
