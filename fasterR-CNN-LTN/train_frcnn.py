@@ -157,6 +157,14 @@ all_imgs, classes_count, class_mapping = get_data(options.train_path)
 cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
 
+examples_per_classes = [x[1] for x in sorted([x for x in classes_count.items()],key=lambda x:x[0])]
+beta =0.9999
+num_classes = len(examples_per_classes)
+print(num_classes)
+effective_num = 1.0 - np.power(beta, examples_per_classes)
+weights = (1.0 - beta) / np.array(effective_num)
+weights = weights / np.sum(weights) * int(num_classes)
+print(weights)
 if 'bg' not in classes_count:
 	classes_count['bg'] = 0
 	class_mapping['bg'] = len(class_mapping)
@@ -210,7 +218,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_los_logsum','linear',Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_los_logsum','linear',weights,2,Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
@@ -219,8 +227,8 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('model_focal_logsum_neptune_2.hdf5', by_name=True)
-	model_classifier.load_weights('model_focal_logsum_neptune_2.hdf5', by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -229,7 +237,7 @@ except:
 parameters = C.__dict__
 neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
 exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}'.format(C.activation,C.aggregator,1e-5,1e-5)
-neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/Clause.py","keras_frcnn/resnet.py","keras_frcnn/config.py"])
+neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/Clause.py","keras_frcnn/resnet.py","keras_frcnn/ltn.py"])
 
 
 optimizer = Adam(lr=1e-5)
@@ -251,14 +259,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 1.99
+best_loss = np.Inf
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(230,num_epochs):
+for epoch_num in range(num_epochs):
 
 	progbar = generic_utils.Progbar(epoch_length)
 	print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
@@ -340,6 +348,7 @@ for epoch_num in range(230,num_epochs):
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
 
+
 			neptune.log_metric('loss_rpn_classifier', np.mean(losses[:iter_num, 0]))
 			neptune.log_metric('loss_rpn_regression', np.mean(losses[:iter_num, 1]))
 			neptune.log_metric('loss_detector_regression', np.mean(losses[:iter_num, 2]))
@@ -357,6 +366,11 @@ for epoch_num in range(230,num_epochs):
 				loss_class_cls = np.mean(losses[:, 2])
 				loss_class_regr = np.mean(losses[:, 3])
 				class_acc = np.mean(losses[:, 4])
+
+				neptune.log_metric('loss_rpn_classifier_end', np.mean(losses[:, 0]))
+				neptune.log_metric('loss_rpn_regression_end', np.mean(losses[:, 1]))
+				neptune.log_metric('loss_detector_regression_end', np.mean(losses[:, 2]))
+				neptune.log_metric('loss_ltn_end', np.mean(losses[:, 3]))
 
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
 				rpn_accuracy_for_epoch = []

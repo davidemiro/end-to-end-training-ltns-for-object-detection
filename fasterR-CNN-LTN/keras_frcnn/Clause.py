@@ -2,13 +2,18 @@ import tensorflow as tf
 from keras.layers import Layer,Activation
 
 
+
+
+
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,**kwargs):
+    def __init__(self,tnorm,aggregator,num_class,alpha,gamma,**kwargs):
         super(Clause,self).__init__(**kwargs)
-        self.tnorm =tnorm
+        self.tnorm = tnorm
         self.aggregator = aggregator
         self.num_class = num_class
+        self.alpha = alpha
+        self.gamma = gamma
 
            
 
@@ -29,7 +34,7 @@ class Clause(Layer):
 
         #literal
         #x = tf.Print(x, [x,tf.shape(x)], "Prediction_{}".format(self.num_class))
-        #y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class))
+        y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class),summarize=20000)
         x = tf.reshape(x,(32,1))
         y = tf.reshape(y,(32,1))
         pt = tf.math.multiply(y, x) + tf.math.multiply((1 - y), (1 - x))
@@ -62,9 +67,10 @@ class Clause(Layer):
             #h = tf.Print(h, [h,tf.shape(h)], "Clause_{}".format(self.num_class))
             return h
         if self.aggregator == "focal_los_logsum":
-            gamma = 2
-            fl = tf.negative(tf.math.multiply(tf.math.pow((1 - pt), gamma), tf.math.log(pt)))
-           # fl = tf.Print(fl, [fl], "fl_{}".format(self.num_class))
+            h = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
+            h = tf.Print(h, [h], "h_{}".format(self.num_class),summarize=20000)
+            fl = tf.negative(self.alpha*h)
+            fl = tf.Print(fl, [fl], "fl_{}".format(self.num_class),summarize=20000)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
            # h = tf.Print(h, [h], "h_{}".format(self.num_class))
             return h
