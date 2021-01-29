@@ -242,7 +242,7 @@ def rpn(base_layers,num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,weights,gamma,Y, std_x, std_y, std_w, std_h):
+def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,weights_pos,weights_neg,gamma,Y, std_x, std_y, std_w, std_h):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -266,7 +266,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     for i in range(nb_classes - 1):
         x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
 
-        x = Clause(tnorm=tnorm, aggregator=aggregator,alpha=weights[i],gamma=2, num_class=i)([x, Y[i]])
+        x = Clause(tnorm=tnorm, aggregator=aggregator,alpha_pos=weights_pos[i],alpha_neg=weights_neg[i],gamma=2, num_class=i)([x, Y[i]])
       #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
         output.append(x)
 

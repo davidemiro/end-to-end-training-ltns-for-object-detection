@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import csv
 
+
 def get_data(input_path):
 	all_imgs = []
 
@@ -15,18 +16,14 @@ def get_data(input_path):
 
 	data_paths = [input_path]
 
-
 	print('Parsing annotation files')
-	ontology_dict ={}
-	root = []
-
 
 	for data_path in data_paths:
 
 		annot_path = os.path.join(data_path, 'Annotations')
 		imgs_path = os.path.join(data_path, 'JPEGImages')
-		imgsets_path_trainval = os.path.join(data_path, 'ImageSets','Main','train.txt')
-		imgsets_path_test = os.path.join(data_path, 'ImageSets','Main','val.txt')
+		imgsets_path_trainval = os.path.join(data_path, 'ImageSets', 'Main', 'train.txt')
+		imgsets_path_test = os.path.join(data_path, 'ImageSets', 'Main', 'val.txt')
 
 		trainval_files = []
 		test_files = []
@@ -47,7 +44,7 @@ def get_data(input_path):
 				pass
 			else:
 				print(e)
-		
+
 		annots = [os.path.join(annot_path, s) for s in os.listdir(annot_path)]
 		idx = 0
 		for annot in annots:
@@ -73,7 +70,7 @@ def get_data(input_path):
 						annotation_data['imageset'] = 'test'
 					else:
 						annotation_data['imageset'] = 'trainval'
-				
+
 				for element_obj in element_objs:
 					class_name = element_obj.find('name').text
 					if class_name not in classes_count:
@@ -90,19 +87,21 @@ def get_data(input_path):
 					x2 = int(round(float(obj_bbox.find('xmax').text)))
 					y2 = int(round(float(obj_bbox.find('ymax').text)))
 					difficulty = 0
-					annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty})
 
+					annotation_data['bboxes'].append(
+						{'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty})
 				all_imgs.append(annotation_data)
 
 				if visualise:
 					img = cv2.imread(annotation_data['filepath'])
 					for bbox in annotation_data['bboxes']:
 						cv2.rectangle(img, (bbox['x1'], bbox['y1']), (bbox[
-									  'x2'], bbox['y2']), (0, 0, 255))
+																		  'x2'], bbox['y2']), (0, 0, 255))
 					cv2.imshow('img', img)
 					cv2.waitKey(0)
 
 			except Exception as e:
 				print(e)
 				continue
+
 	return all_imgs, classes_count, class_mapping

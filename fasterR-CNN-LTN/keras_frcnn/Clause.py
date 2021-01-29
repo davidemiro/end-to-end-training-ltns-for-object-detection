@@ -7,12 +7,13 @@ from keras.layers import Layer,Activation
 
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,alpha,gamma,**kwargs):
+    def __init__(self,tnorm,aggregator,num_class,alpha_pos,alpha_neg,gamma,**kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm = tnorm
         self.aggregator = aggregator
         self.num_class = num_class
-        self.alpha = alpha
+        self.alpha_pos = alpha_pos
+        self.alpha_neg = alpha_neg
         self.gamma = gamma
 
            
@@ -67,10 +68,10 @@ class Clause(Layer):
             #h = tf.Print(h, [h,tf.shape(h)], "Clause_{}".format(self.num_class))
             return h
         if self.aggregator == "focal_los_logsum":
-            h = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
-            #h = tf.Print(h, [h], "h_{}".format(self.num_class),summarize=20000)
-            fl = tf.negative(self.alpha*h)
-            #fl = tf.Print(fl, [fl], "fl_{}".format(self.num_class),summarize=20000)
+            fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
+            #fl = tf.Print(fl, [fl], "focal_loss_no_alpha_{}".format(self.num_class),summarize=20000)
+            fl = tf.negative(self.alpha_pos*y*fl + self.alpha_neg*(1-y)*fl)
+            #fl = tf.Print(fl, [fl], "focal_loss_alpha_{}".format(self.num_class),summarize=20000)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
            # h = tf.Print(h, [h], "h_{}".format(self.num_class))
             return h

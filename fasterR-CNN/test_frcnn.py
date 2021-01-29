@@ -11,7 +11,10 @@ from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from keras_frcnn import roi_helpers
+from keras_frcnn.pascal_voc_parser import get_data
+import os
 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 sys.setrecursionlimit(40000)
 
 parser = OptionParser()
@@ -93,13 +96,14 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
 
 	return (real_x1, real_y1, real_x2 ,real_y2)
 
-class_mapping = C.class_mapping
 
-if 'bg' not in class_mapping:
-	class_mapping['bg'] = len(class_mapping)
+all_imgs, _, _ = get_data(options.test_path)
 
+
+class_mapping = {'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
 class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
+C.class_mapping = class_mapping
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
 C.num_rois = int(options.num_rois)
 
@@ -137,26 +141,34 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights(C.model_path, by_name=True)
-model_classifier.load_weights(C.model_path, by_name=True)
+
+model_rpn.load_weights('/Users/davidemiro/Downloads/model_rpn_original_PASCAL_VOC_8_12.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Downloads/model_classifier_PASCAL_VOC_8_12.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
-all_imgs = []
+{'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
+
 
 classes = {}
 
-bbox_threshold = 0.8
+bbox_threshold = 0.7
 
 visualise = True
 
-for idx, img_name in enumerate(sorted(os.listdir(img_path))):
-	if not img_name.lower().endswith(('.bmp', '.jpeg', '.jpg', '.png', '.tif', '.tiff')):
-		continue
+
+test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+
+for idx, img_data in enumerate(test_imgs):
+	print(img_data['filepath'])
+
+	st = time.time()
+	filepath = img_data['filepath']
+	img_name = img_data['filepath'][-15:-4]
 	print(img_name)
 	st = time.time()
-	filepath = os.path.join(img_path,img_name)
+
 
 	img = cv2.imread(filepath)
 
@@ -193,7 +205,7 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 			ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
 			ROIs = ROIs_padded
 
-		[P_cls, P_regr] = model_classifier_only.predict([F, ROIs])
+		[P_cls, P_regr] = model_classifier.predict([F, ROIs])
 
 		for ii in range(P_cls.shape[1]):
 
@@ -246,6 +258,6 @@ for idx, img_name in enumerate(sorted(os.listdir(img_path))):
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
-	cv2.imshow('img', img)
-	cv2.waitKey(0)
-	# cv2.imwrite('./results_imgs/{}.png'.format(idx),img)
+#	cv2.imshow('img', img)
+#	cv2.waitKey(0)
+	cv2.imwrite('/Users/davidemiro/Desktop/comparison/{}.png'.format(img_name), img)
