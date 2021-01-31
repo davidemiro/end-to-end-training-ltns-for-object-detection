@@ -271,14 +271,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 2.4779
+best_loss = 2.29
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(225,num_epochs):
+for epoch_num in range(257,num_epochs):
 
 
 
