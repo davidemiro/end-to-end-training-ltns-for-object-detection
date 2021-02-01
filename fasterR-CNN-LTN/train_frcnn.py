@@ -7,7 +7,7 @@ import numpy as np
 from optparse import OptionParser
 import pickle
 import random
-import neptune
+#import neptune
 
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
@@ -238,20 +238,20 @@ model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights("model_{}.hdf5".format(options.name), by_name=True)
-	model_classifier.load_weights("model_{}.hdf5".format(options.name), by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
 
-
+'''
 # ***NEPTUNE**
 parameters = C.__dict__
 neptune.init('GRAINS/FRCNN-LTN', api_token=options.api_token)
 exp_name = 'FRCNN_LTN_activation={}_aggregator={}_no_bb_lr_rpn={}_lr_class={}_weights'.format(C.activation,C.aggregator,1e-5,1e-5)
 neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["train_frcnn.py","keras_frcnn/Clause.py","keras_frcnn/resnet.py","keras_frcnn/ltn.py"])
 
-
+'''
 optimizer = Adam(lr=1e-5)
 optimizer_classifier = Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
@@ -271,14 +271,14 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 2.29
+best_loss = np.Inf
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
 
-for epoch_num in range(257,num_epochs):
+for epoch_num in range(num_epochs):
 
 
 
@@ -288,7 +288,8 @@ for epoch_num in range(257,num_epochs):
 
 	while True:
 		try:
-			#log_file = open('losses_{}.txt'.format(options.name),'a')
+			log_file = open('losses_{}.txt'.format(options.name),'a')
+
 
 			if len(rpn_accuracy_rpn_monitor) == epoch_length and C.verbose:
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_rpn_monitor)) / len(rpn_accuracy_rpn_monitor)
@@ -363,12 +364,18 @@ for epoch_num in range(257,num_epochs):
 			losses[iter_num, 2] = loss_class[1]
 			losses[iter_num, 3] = loss_class[2]
 
-
+			'''
 			neptune.log_metric('loss_rpn_classifier', np.mean(losses[:iter_num, 0]))
 			neptune.log_metric('loss_rpn_regression', np.mean(losses[:iter_num, 1]))
 			neptune.log_metric('loss_detector_regression', np.mean(losses[:iter_num, 2]))
 			neptune.log_metric('loss_ltn', np.mean(losses[:iter_num, 3]))
+			'''
 
+			for i in range(4):
+				log_file.write('{}\t'.format(np.mean(losses[:iter_num, i])))
+			log_file.write('\n')
+
+			log_file.close()
 			iter_num += 1
 
 			progbar.update(iter_num,
@@ -382,11 +389,20 @@ for epoch_num in range(257,num_epochs):
 				loss_class_regr = np.mean(losses[:, 3])
 				class_acc = np.mean(losses[:, 4])
 
+				log_file_end = open('losses_end_{}.txt'.format(options.name), 'a')
+				for i in range(4):
+					log_file_end.write('{}\t'.format(np.mean(losses[:, i])))
+				log_file_end.write('\n')
+
+				log_file_end.close()
+
+
+				'''
 				neptune.log_metric('loss_rpn_classifier_end', np.mean(losses[:, 0]))
 				neptune.log_metric('loss_rpn_regression_end', np.mean(losses[:, 1]))
 				neptune.log_metric('loss_detector_regression_end', np.mean(losses[:, 2]))
 				neptune.log_metric('loss_ltn_end', np.mean(losses[:, 3]))
-
+				'''
 				mean_overlapping_bboxes = float(sum(rpn_accuracy_for_epoch)) / len(rpn_accuracy_for_epoch)
 				rpn_accuracy_for_epoch = []
 
