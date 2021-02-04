@@ -1,6 +1,5 @@
 import os
 import cv2
-
 import numpy as np
 import sys
 import pickle
@@ -15,18 +14,17 @@ from keras_frcnn import data_generators
 from sklearn.metrics import average_precision_score
 
 
-def get_map(pred, gt,w,h,f):
+def get_map(pred, gt, f):
 	T = {}
 	P = {}
 	fx, fy = f
-	mapping_id_pred = {}
 
 	for bbox in gt:
 		bbox['bbox_matched'] = False
 
 	pred_probs = np.array([s['prob'] for s in pred])
 	box_idx_sorted_by_prob = np.argsort(pred_probs)[::-1]
-    
+
 	for box_idx in box_idx_sorted_by_prob:
 		pred_box = pred[box_idx]
 		pred_class = pred_box['class']
@@ -43,10 +41,10 @@ def get_map(pred, gt,w,h,f):
 
 		for gt_box in gt:
 			gt_class = gt_box['class']
-			gt_x1 = gt_box['x1']/fx
-			gt_x2 = gt_box['x2']/fx
-			gt_y1 = gt_box['y1']/fy
-			gt_y2 = gt_box['y2']/fy
+			gt_x1 = gt_box['x1'] / fx
+			gt_x2 = gt_box['x2'] / fx
+			gt_y1 = gt_box['y1'] / fy
+			gt_y2 = gt_box['y2'] / fy
 			gt_seen = gt_box['bbox_matched']
 			if gt_class != pred_class:
 				continue
@@ -56,9 +54,6 @@ def get_map(pred, gt,w,h,f):
 			if iou >= 0.5:
 				found_match = True
 				gt_box['bbox_matched'] = True
-				b = pred_box
-				b['partOf'] = gt_box['partOf']
-				mapping_id_pred['{}_{}_{}_{}_{}'.format(gt_class,gt_box['x1'],gt_box['x2'],gt_box['y1'],gt_box['y2'])] = b
 				break
 			else:
 				continue
@@ -73,27 +68,11 @@ def get_map(pred, gt,w,h,f):
 
 			T[gt_box['class']].append(1)
 			P[gt_box['class']].append(0)
-	
-	pairs_partOF = []
-	label_partOF = []
-	data = []
-	label = []
-	
-	for k,m in mapping_id_pred.items():
 
-		d = np.concatenate((m['features'],np.array([m['x1']/w,m['y1']/h,m['x2']/w,m['y2']/h])))
-		data.append(d)
-		label.append(m['class'])
-		for z,n in mapping_id_pred.items():
-			if k == z:
-				continue
-			pair = np.concatenate((m['features'],np.array([m['x1']/w,m['y1']/h,m['x2']/w,m['y2']/h]),n['features'],np.array([n['x1']/w,n['y1']/h,n['x2']/w,n['y2']/h])))
-			pairs_partOF.append(pair)
-			if k == n['partOf']:
-				label_partOF.append(True)
-			else:
-				label_partOF.append(False)
-	return T, P , pairs_partOF, label_partOF, data, label
+	# import pdb
+	# pdb.set_trace()
+	return T, P
+
 
 sys.setrecursionlimit(40000)
 
@@ -101,18 +80,17 @@ parser = OptionParser()
 
 parser.add_option("-p", "--path", dest="test_path", help="Path to test data.")
 parser.add_option("-n", "--num_rois", dest="num_rois",
-				help="Number of ROIs per iteration. Higher means more memory use.", default=32)
+				  help="Number of ROIs per iteration. Higher means more memory use.", default=32)
 parser.add_option("--config_filename", dest="config_filename", help=
-				"Location to read the metadata related to the training (generated when training).",
-				default="config.pickle")
+"Location to read the metadata related to the training (generated when training).",
+				  default="config.pickle")
 parser.add_option("-o", "--parser", dest="parser", help="Parser to use. One of simple or pascal_voc",
-				default="pascal_voc"),
+				  default="pascal_voc"),
 
 (options, args) = parser.parse_args()
 
-if not options.test_path:   # if filename is not given
+if not options.test_path:  # if filename is not given
 	parser.error('Error: path to test data must be specified. Pass --path to command line')
-
 
 if options.parser == 'pascal_voc':
 	from keras_frcnn.pascal_voc_parser import get_data
@@ -122,11 +100,10 @@ else:
 	raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
 config_output_filename = options.config_filename
-'''
+
 with open(config_output_filename, 'r') as f_in:
 	C = pickle.load(f_in)
-'''
-C = config.Config()
+
 # turn off any data augmentation at test time
 C.use_horizontal_flips = False
 C.use_vertical_flips = False
@@ -144,18 +121,18 @@ img_path = options.test_path
 
 def format_img(img, C):
 	img_min_side = float(C.im_size)
-	(height,width,_) = img.shape
-	
+	(height, width, _) = img.shape
+
 	if width <= height:
-		f = img_min_side/width
+		f = img_min_side / width
 		new_height = int(f * height)
 		new_width = int(img_min_side)
 	else:
-		f = img_min_side/height
+		f = img_min_side / height
 		new_width = int(f * width)
 		new_height = int(img_min_side)
-	fx = width/float(new_width)
-	fy = height/float(new_height)
+	fx = width / float(new_width)
+	fy = height / float(new_height)
 	img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 	img = img[:, :, (2, 1, 0)]
 	img = img.astype(np.float32)
@@ -168,7 +145,7 @@ def format_img(img, C):
 	return img, fx, fy
 
 
-class_mapping = C.class_mapping
+class_mapping = {'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
 
 if 'bg' not in class_mapping:
 	class_mapping['bg'] = len(class_mapping)
@@ -184,7 +161,6 @@ if K.image_dim_ordering() == 'th':
 else:
 	input_shape_img = (None, None, 3)
 	input_shape_features = (None, None, 1024)
-
 
 img_input = Input(shape=input_shape_img)
 roi_input = Input(shape=(C.num_rois, 4))
@@ -204,8 +180,8 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
-#model_rpn.load_weights('model_rpn.hdf5', by_name=True)
-#model_classifier.load_weights('model_classifier.hdf5', by_name=True)
+model_rpn.load_weights('/content/drive/MyDrive/materiale_tesi/comparison_models/model_rpn_original_PASCAL_VOC_8_12.hdf5', by_name=True)
+model_classifier.load_weights('/content/drive/MyDrive/materiale_tesi/comparison_models/model_classifier_PASCAL_VOC_8_12.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -213,15 +189,10 @@ model_classifier.compile(optimizer='sgd', loss='mse')
 all_imgs, _, _ = get_data(options.test_path)
 test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
-print(len(test_imgs))
 T = {}
 P = {}
-pairs_partOF = []
-label_partOF = []
-data = []
-label = []
 for idx, img_data in enumerate(test_imgs):
-	print('{}/{}'.format(idx,len(test_imgs)))
+	print('{}/{}'.format(idx, len(test_imgs)))
 	st = time.time()
 	filepath = img_data['filepath']
 
@@ -244,7 +215,6 @@ for idx, img_data in enumerate(test_imgs):
 	# apply the spatial pyramid pooling to the proposed regions
 	bboxes = {}
 	probs = {}
-	features = {}
 
 	for jk in range(R.shape[0] // C.num_rois + 1):
 		ROIs = np.expand_dims(R[C.num_rois * jk:C.num_rois * (jk + 1), :], axis=0)
@@ -272,7 +242,6 @@ for idx, img_data in enumerate(test_imgs):
 			if cls_name not in bboxes:
 				bboxes[cls_name] = []
 				probs[cls_name] = []
-				features[cls_name] = []
 
 			(x, y, w, h) = ROIs[0, ii, :]
 
@@ -286,32 +255,22 @@ for idx, img_data in enumerate(test_imgs):
 				x, y, w, h = roi_helpers.apply_regr(x, y, w, h, tx, ty, tw, th)
 			except:
 				pass
-			
 			bboxes[cls_name].append([16 * x, 16 * y, 16 * (x + w), 16 * (y + h)])
 			probs[cls_name].append(np.max(P_cls[0, ii, :]))
-			features[cls_name].append(P_cls[0, ii, :])
 
 	all_dets = []
 
 	for key in bboxes:
 		bbox = np.array(bboxes[key])
 
-		new_boxes, new_probs ,new_features = roi_helpers.non_max_suppression_fast1(bbox, np.array(probs[key]),np.array(features[key]), overlap_thresh=0.5)
+		new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
 		for jk in range(new_boxes.shape[0]):
 			(x1, y1, x2, y2) = new_boxes[jk, :]
-			det = {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': key, 'prob': new_probs[jk],'features':new_features[jk]}
+			det = {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': key, 'prob': new_probs[jk]}
 			all_dets.append(det)
 
-
 	print('Elapsed time = {}'.format(time.time() - st))
-
-	t, p, pt, ptf, d, l = get_map(all_dets, img_data['bboxes'],img_data['width'],img_data['height'],(fx, fy))
-
-	pairs_partOF +=pt
-	label_partOF +=ptf
-	data +=d
-	label +=l
-
+	t, p = get_map(all_dets, img_data['bboxes'], (fx, fy))
 	for key in t.keys():
 		if key not in T:
 			T[key] = []
@@ -324,13 +283,7 @@ for idx, img_data in enumerate(test_imgs):
 		print('{} AP: {}'.format(key, ap))
 		all_aps.append(ap)
 	print('mAP = {}'.format(np.mean(np.array(all_aps))))
-	
-
-	#print(T)
-	#print(P)
-
-np.savetxt('partOf_t.csv',pairs_partOF)
-np.savetxt('label_partOf_t.csv',label_partOF)
-np.savetxt('data_t.csv',data)
-np.savetxt('label_t.csv',label,fmt='%s')
-
+with open('T_' + 'PASCAL' + '.pkl', 'wb') as f:
+    pickle.dump(T, f)
+with open('P_' + 'PASCAL' + '.pkl', 'wb') as f:
+    pickle.dump(P, f)

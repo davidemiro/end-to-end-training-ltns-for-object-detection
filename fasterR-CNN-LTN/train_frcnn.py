@@ -235,6 +235,8 @@ model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
 model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
+print(model_classifier.summary())
+
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
@@ -254,6 +256,7 @@ neptune.create_experiment(name=exp_name,params=parameters,upload_source_files=["
 '''
 optimizer = Adam(lr=1e-5)
 optimizer_classifier = Adam(lr=1e-5)
+
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier,
 						 loss=[losses.class_loss_regr(len(classes_count) - 1),ltn.ltn_loss('sum',1)])

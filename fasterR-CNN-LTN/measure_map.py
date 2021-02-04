@@ -284,5 +284,7 @@ for idx, img_data in enumerate(test_imgs):
         print('{} AP: {}'.format(key, ap))
         all_aps.append(ap)
     print('mAP = {}'.format(np.mean(np.array(all_aps))))
-# print(T)
-# print(P)
+with open('T_' + options.name + '.pkl', 'wb') as f:
+    pickle.dump(T, f)
+with open('P_' + options.name + '.pkl', 'wb') as f:
+    pickle.dump(P, f)
