@@ -7,13 +7,11 @@ from keras.layers import Layer,Activation
 
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,alpha_pos,alpha_neg,gamma,**kwargs):
+    def __init__(self,tnorm,aggregator,num_class,gamma,**kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm = tnorm
         self.aggregator = aggregator
         self.num_class = num_class
-        self.alpha_pos = alpha_pos
-        self.alpha_neg = alpha_neg
         self.gamma = gamma
 
            
@@ -25,23 +23,7 @@ class Clause(Layer):
         return [(1,1)]
     def call(self,input, mask=None):
 
-        if len(input) ==3:
-            x = input[0]
-            y = input[1]
-            m = input[2]
-        else:
-            x = input[0]
-            y = input[1]
-
-        #literal
-        #x = tf.Print(x, [x,tf.shape(x)], "Prediction_{}".format(self.num_class))
-        #y = tf.Print(y, [y,tf.shape(y)], "Labels_{}".format(self.num_class),summarize=20000)
-        x = tf.reshape(x,(32,1))
-        y = tf.reshape(y,(32,1))
-        pt = tf.math.multiply(y, x) + tf.math.multiply((1 - y), (1 - x))
-       # x_ = tf.Print(x_,[x_,tf.shape(x_)],"Litteral_{}".format(self.num_class))
-        pt = tf.reshape(pt,(32,1))
-        #pt = tf.Print(pt, [pt, tf.shape(pt)], "Literal_{}".format(self.num_class))
+        pt = input
         if self.tnorm == "product":
             result = 1.0-tf.reduce_prod(1.0-pt,1,keep_dims=True)
         if self.tnorm =="yager2":
@@ -67,10 +49,10 @@ class Clause(Layer):
             #print(self.num_class)
             #h = tf.Print(h, [h,tf.shape(h)], "Clause_{}".format(self.num_class))
             return h
-        if self.aggregator == "focal_los_logsum":
+        if self.aggregator == "focal_loss_logsum":
             fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
             #fl = tf.Print(fl, [fl], "focal_loss_no_alpha_{}".format(self.num_class),summarize=20000)
-            fl = tf.negative(self.alpha_pos*y*fl + self.alpha_neg*(1-y)*fl)
+            fl = tf.negative(fl)
             #fl = tf.Print(fl, [fl], "focal_loss_alpha_{}".format(self.num_class),summarize=20000)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
            # h = tf.Print(h, [h], "h_{}".format(self.num_class))

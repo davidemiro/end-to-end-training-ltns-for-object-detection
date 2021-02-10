@@ -145,7 +145,7 @@ def format_img(img, C):
 	return img, fx, fy
 
 
-class_mapping = {'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
+
 
 if 'bg' not in class_mapping:
 	class_mapping['bg'] = len(class_mapping)

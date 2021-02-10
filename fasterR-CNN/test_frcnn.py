@@ -97,12 +97,18 @@ def get_real_coordinates(ratio, x1, y1, x2, y2):
 	return (real_x1, real_y1, real_x2 ,real_y2)
 
 
-all_imgs, _, _ = get_data(options.test_path)
+all_imgs, _, class_mapping = get_data(options.test_path)
 
 
-class_mapping = {'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
+#class_mapping = {'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
+class_mapping = {'Person': 0, 'Hand': 1, 'Arm': 2, 'Neck': 3, 'Torso': 4, 'Nose': 5, 'Hair': 6, 'Mouth': 7, 'Ebrow': 8, 'Eye': 9, 'Ear': 10, 'Head': 11, 'Bottle': 12, 'Cap': 13, 'Body': 14, 'Leg': 15, 'Pottedplant': 16, 'Plant': 17, 'Pot': 18, 'Foot': 19, 'Chair': 20, 'Sheep': 21, 'Tail': 22, 'Muzzle': 23, 'Cat': 24, 'Dog': 25, 'Train': 26, 'Locomotive': 27, 'Bicycle': 28, 'Handlebar': 29, 'Chain_Wheel': 30, 'Wheel': 31, 'Motorbike': 32, 'Tvmonitor': 33, 'Screen': 34, 'Horse': 35, 'Hoof': 36, 'Car': 37, 'Window': 38, 'Bodywork': 39, 'Mirror': 40, 'License_plate': 41, 'Door': 42, 'Headlight': 43, 'Saddle': 44, 'Boat': 45, 'Diningtable': 46, 'Coach': 47, 'Aeroplane': 48, 'Stern': 49, 'Sofa': 50, 'Bird': 51, 'Beak': 52, 'Artifact_Wing': 53, 'Engine': 54, 'Bus': 55, 'Animal_Wing': 56, 'Horn': 57, 'Cow': 58}
+
+if 'bg' not in class_mapping:
+	class_mapping['bg'] = len(class_mapping)
+
 class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
+
 C.class_mapping = class_mapping
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
 C.num_rois = int(options.num_rois)
@@ -142,18 +148,18 @@ model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
 
-model_rpn.load_weights('/Users/davidemiro/Downloads/model_rpn_original_PASCAL_VOC_8_12.hdf5', by_name=True)
-model_classifier.load_weights('/Users/davidemiro/Downloads/model_classifier_PASCAL_VOC_8_12.hdf5', by_name=True)
+model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_rpn_original.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_classifier_original.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
-{'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
+#{'dog': 0, 'person': 1, 'cat': 2, 'bird': 3, 'bottle': 4, 'train': 5, 'sofa': 6, 'pottedplant': 7, 'sheep': 8, 'car': 9, 'bicycle': 10, 'chair': 11, 'diningtable': 12, 'tvmonitor': 13, 'motorbike': 14, 'boat': 15, 'horse': 16, 'bus': 17, 'cow': 18, 'aeroplane': 19, 'bg': 20}
 
 
 classes = {}
 
-bbox_threshold = 0.7
+bbox_threshold = 0.8
 
 visualise = True
 
@@ -260,4 +266,4 @@ for idx, img_data in enumerate(test_imgs):
 	print(all_dets)
 #	cv2.imshow('img', img)
 #	cv2.waitKey(0)
-	cv2.imwrite('/Users/davidemiro/Desktop/comparison/{}.png'.format(img_name), img)
+	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}.png'.format(img_name), img)

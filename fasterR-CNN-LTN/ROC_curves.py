@@ -1,11 +1,17 @@
 import pickle
 import numpy as np
-from sklearn.metrics import roc_curve,auc
+from sklearn.metrics import roc_curve,auc,precision_recall_curve
 import matplotlib.pyplot as plt
+from sklearn.metrics import average_precision_score
+
 
 
 
 models =['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha-2','focal_logsum_neptune_alpha_prof']
+models_name =['FRCNN','Arch13 (focal loss)','Arch14 (focal loss con alpha)','Arch15 (focal loss con alpha per pos e neg)']
+
+#models = ['parts','focal_logsum_pos_weights_parts']
+#models_name =['FRCNN','Arch15 (focal loss con alpha per pos e neg)']
 def loadTP(name):
     T_file = open('/Users/davidemiro/Downloads/T_{}.pkl'.format(name),'rb')
     P_file = open('/Users/davidemiro/Downloads/P_{}.pkl'.format(name),'rb')
@@ -20,7 +26,7 @@ def plot_roc_curve(models,T,P,label):
 
     aucs = []
 
-
+    plt.title('ROC curves {} class'.format(label))
     for string,t,p in zip(models,T,P):
 
 
@@ -33,14 +39,27 @@ def plot_roc_curve(models,T,P,label):
         fpr = dict()
         tpr = dict()
         roc_auc = dict()
-        fpr, tpr, _ = roc_curve(y_test, y_score)
-        roc_auc = auc(fpr, tpr)
 
 
-        plt.plot(fpr, tpr, label="{}, auc={}".format(string,str(roc_auc)))
+        p,r,th = precision_recall_curve(y_test, y_score)
+
+        if (string in ['FRCNN','Arch13 (focal loss)'] and label == 'bird'):
+            print(string)
+            print('Precision')
+            print(p)
+            print('Recall')
+            print(r)
+            print('Threshold')
+            print(th)
+        AP = average_precision_score(y_test, y_score)
+        plt.plot(r,p, label="{}, ap={}".format(string,str(AP)))
+
+
 
     plt.legend(loc = 0)
-    plt.savefig('/Users/davidemiro/Desktop/ROC_curves_FRCNN-LTN/{}.png'.format(label))
+    plt.xlabel('recall')
+    plt.ylabel('precision')
+    plt.savefig('/Users/davidemiro/Desktop/AP_curves_pascal_part/ROC_{}.png'.format(label))
     plt.show()
 
 
@@ -59,6 +78,6 @@ for m in models:
 
 labels =list(P[0].keys())
 for l in labels:
-    plot_roc_curve(models,T,P,l)
+    plot_roc_curve(models_name,T,P,l)
 
 

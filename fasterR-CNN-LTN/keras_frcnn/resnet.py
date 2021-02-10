@@ -19,6 +19,7 @@ from keras_frcnn.bb_creation import bb_creation
 from keras_frcnn import ltn
 from keras.layers.merge import concatenate
 from keras_frcnn.Clause import Clause
+from keras_frcnn.Literal import Literal
 import tensorflow as tf
 
 import keras
@@ -242,7 +243,7 @@ def rpn(base_layers,num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,weights_pos,weights_neg,gamma,Y, std_x, std_y, std_w, std_h):
+def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -263,10 +264,10 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
-    for i in range(nb_classes - 1):
+    for i in range(nb_classes):
         x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
-
-        x = Clause(tnorm=tnorm, aggregator=aggregator,alpha_pos=weights_pos[i],alpha_neg=weights_neg[i],gamma=2, num_class=i)([x, Y[i]])
+        x = Literal(num_class=i)([x,Y[i]])
+        x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=2, num_class=i)(x)
       #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
         output.append(x)
 
@@ -294,7 +295,7 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,activation
     out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
-    #tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
+
     output = []
     for i in range(nb_classes - 1):
         x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)

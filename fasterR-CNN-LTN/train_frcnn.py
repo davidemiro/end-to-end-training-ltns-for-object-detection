@@ -22,8 +22,8 @@ import keras_frcnn.ltn as ltn
 
 def defineGT(labels, num_classes, batch_size):
 	y_l = []
-	y = np.zeros((1, 1, num_classes - 1))
-	for i in range(num_classes - 1):
+	y = np.zeros((1, 1, num_classes))
+	for i in range(num_classes):
 		y_i = np.zeros((batch_size, 1))
 		for j in range(batch_size):
 			label = np.argmax(labels[0, j, :])
@@ -157,24 +157,7 @@ all_imgs, classes_count, class_mapping = get_data(options.train_path)
 cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
 
-examples_per_classes = [x[1] for x in sorted([x for x in classes_count.items()],key=lambda x:x[0])]
-beta =0.9999
-num_classes = len(examples_per_classes)
-tot = np.sum(examples_per_classes)
-examples_per_classes_p = [e/tot for e in examples_per_classes]
 
-effective_pos = [16*e for e in examples_per_classes_p]
-effective_pos = 1.0 - np.power(beta, effective_pos)
-weights_pos = (1.0 - beta) / np.array(effective_pos)
-weights_pos = weights_pos / np.sum(weights_pos) * int(num_classes)
-
-effective_neg = [16+16*(1-e) for e in examples_per_classes_p]
-effective_neg = 1.0 - np.power(beta, effective_neg)
-weights_neg = (1.0 - beta) / np.array(effective_neg)
-weights_neg = weights_neg / np.sum(weights_neg) * int(num_classes)
-
-print(weights_pos)
-print(weights_neg)
 
 if 'bg' not in classes_count:
 	classes_count['bg'] = 0
@@ -220,7 +203,7 @@ else:
 
 img_input = Input(shape=input_shape_img)
 roi_input = Input(shape=(None, 4))
-Y_b = [Input(shape=(C.num_rois, 1)) for i in range(len(classes_count) - 1)]
+Y_b = [Input(shape=(C.num_rois, 1)) for i in range(len(classes_count))]
 
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
@@ -229,13 +212,12 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_los_logsum','linear',weights_pos,weights_neg,2,Y_b,C.classifier_regr_std[0],C.classifier_regr_std[1],C.classifier_regr_std[2],C.classifier_regr_std[3])
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y_b)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
 model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
 
-print(model_classifier.summary())
 
 
 try:
