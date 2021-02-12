@@ -157,6 +157,27 @@ all_imgs, classes_count, class_mapping = get_data(options.train_path)
 cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
 
+examples_per_classes = [x[1] for x in sorted([x for x in classes_count.items()],key=lambda x:x[0])]
+beta =0.9999
+num_classes = len(examples_per_classes)+1
+tot = np.sum(examples_per_classes)
+examples_per_classes_p = [e/tot for e in examples_per_classes]
+
+effective_pos = [16*e for e in examples_per_classes_p]
+effective_pos.append(16)
+effective_pos = 1.0 - np.power(beta, effective_pos)
+weights_pos = (1.0 - beta) / np.array(effective_pos)
+weights_pos = weights_pos / np.sum(weights_pos) * int(num_classes)
+
+effective_neg = [16+16*(1-e) for e in examples_per_classes_p]
+effective_neg.append(16)
+effective_neg = 1.0 - np.power(beta, effective_neg)
+weights_neg = (1.0 - beta) / np.array(effective_neg)
+weights_neg = weights_neg / np.sum(weights_neg) * int(num_classes)
+
+print(weights_pos)
+print(weights_neg)
+
 
 
 if 'bg' not in classes_count:
@@ -188,6 +209,8 @@ num_imgs = len(all_imgs)
 train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
 val_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
+
+
 print('Num train samples {}'.format(len(train_imgs)))
 print('Num val samples {}'.format(len(val_imgs)))
 
@@ -212,7 +235,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y_b)
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,weights_pos,weights_neg,Y_b)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
