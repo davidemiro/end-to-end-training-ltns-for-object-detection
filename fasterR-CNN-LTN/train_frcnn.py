@@ -440,6 +440,9 @@ for epoch_num in range(num_epochs):
 					if C.verbose:
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss, curr_loss))
 					best_loss = curr_loss
+					log_file_save = open('save_{}.txt'.format(options.name), 'a')
+					log_file_save.write('Check point epoch {}'.format(epoch_num))
+					log_file_save.close()
 					model_all.save_weights("model_{}.hdf5".format(options.name))
 
 				break
