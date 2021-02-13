@@ -76,7 +76,7 @@ def ltn_loss(type,weight):
         if type == 'hmean':
             return -tf.div(tf.reduce_sum(y_true), tf.reduce_sum(tf.div(y_true,y_pred), keep_dims=True)+tf.constant(1e-15))
         elif type == 'sum':
-            return tf.reduce_sum(y_pred, keep_dims=True)*weight
+            return tf.reduce_sum(y_pred, keep_dims=True)
         else:
             return None
     return ltn_loss
