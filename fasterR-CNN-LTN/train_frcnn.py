@@ -123,7 +123,7 @@ else:
 
 # pass the settings from the command line, and persist them in the config object
 C = config.Config()
-knowledge = True
+knowledge = False
 C.use_horizontal_flips = bool(options.horizontal_flips)
 C.use_vertical_flips = bool(options.vertical_flips)
 C.rot_90 = bool(options.rot_90)
@@ -157,7 +157,7 @@ all_imgs, classes_count, class_mapping = get_data(options.train_path)
 
 cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
-
+'''
 examples_per_classes = [x[1] for x in sorted([x for x in classes_count.items()],key=lambda x:x[0])]
 beta =0.9999
 num_classes = len(examples_per_classes)+1
@@ -178,7 +178,7 @@ weights_neg = weights_neg / np.sum(weights_neg) * int(num_classes)
 
 print(weights_pos)
 print(weights_neg)
-
+'''
 
 
 if 'bg' not in classes_count:
@@ -241,7 +241,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,weights_pos,weights_neg,Y_b,knowledge)
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y_b,knowledge)
 
 model_rpn = Model(img_input, rpn[:2])
 model_classifier = Model([img_input, roi_input] + Y_b, classifier)
@@ -372,7 +372,7 @@ for epoch_num in range(num_epochs):
 
 			y_b, y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
 			#add one for axiom
-			y = np.ones((1,1,len(classes_count)+1))
+			#y = np.ones((1,1,len(classes_count)+1))
 			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y_b, [Y2[:, sel_samples, :], y])
 
 			losses[iter_num, 0] = loss_rpn[1]

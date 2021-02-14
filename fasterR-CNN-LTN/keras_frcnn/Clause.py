@@ -7,7 +7,7 @@ from keras.layers import Layer,Activation
 
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,gamma,alpha_pos,alpha_neg,knowledge=False,**kwargs):
+    def __init__(self,tnorm,aggregator,num_class,gamma,alpha_pos=None,alpha_neg=None,knowledge=False,**kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm = tnorm
         self.aggregator = aggregator
@@ -26,7 +26,10 @@ class Clause(Layer):
         return [(1,1)]
     def call(self,input, mask=None):
 
+        print('Predicate {}'.format(self.num_class))
+
         if self.knowledge:
+            print('knowledge')
             pt = input
 
         else:
