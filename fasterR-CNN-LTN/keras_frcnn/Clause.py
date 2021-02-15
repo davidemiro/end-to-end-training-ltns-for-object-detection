@@ -7,7 +7,7 @@ from keras.layers import Layer,Activation
 
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,gamma,alpha_pos=None,alpha_neg=None,knowledge=False,**kwargs):
+    def __init__(self,tnorm,aggregator,num_class,gamma,alpha_pos=None,alpha_neg=None,**kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm = tnorm
         self.aggregator = aggregator
@@ -15,7 +15,6 @@ class Clause(Layer):
         self.gamma = gamma
         self.alpha_pos = alpha_pos
         self.alpha_neg = alpha_neg
-        self.knowledge = knowledge
 
            
 
@@ -28,13 +27,9 @@ class Clause(Layer):
 
         print('Predicate {}'.format(self.num_class))
 
-        if self.knowledge:
-            print('knowledge')
-            pt = input
 
-        else:
-            pt = input[0]
-            y  = input[1]
+        pt = input[0]
+        y  = input[1]
 
 
         if self.tnorm == "product":
@@ -46,11 +41,6 @@ class Clause(Layer):
         if self.tnorm == "goedel":
             result = tf.reduce_max(pt,1,keep_dims=True)
 
-        #axioms not (c1 and c2 and ... cn)
-        if self.knowledge:
-         #   pt = tf.Print(pt,[pt],"AND:")
-            pt = 1 - pt
-         #   pt = tf.Print(pt, [pt], "NEG:")
 
         if self.aggregator == "product":
             return tf.reduce_prod(result,keep_dims=True)
@@ -68,14 +58,8 @@ class Clause(Layer):
             return h
         if self.aggregator == "focal_loss_logsum":
 
-            if self.knowledge:
-                #aggiungo 1e-6 per problema numerico nel predicato
-                fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt+1e-6))
-                fl = tf.negative(fl)
-            else:
-                fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
-                fl = tf.negative(fl)
-
+            fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
+            fl = tf.negative(fl)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
             return h
 

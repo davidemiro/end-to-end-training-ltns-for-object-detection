@@ -264,27 +264,13 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
-    objects = []
     for i in range(nb_classes):
-        o  = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
-        objects.append(o)
-        x = Literal(num_class=i)([o,Y[i]])
-        if alpha_pos==None or alpha_neg==None:
-            x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, num_class=i)([x,Y[i]])
+        x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
+        x = Literal(num_class=i)([x,Y[i]])
+        x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, num_class=i)([x,Y[i]])
       #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
         output.append(x)
-
-
-
-
-
     out_ltn = keras.layers.Concatenate(axis=1)(output)
-
-    # mutual exclusive not(c1 and c2 and c3 and ... cn)
-    if knowledge:
-        x = keras.layers.Concatenate(axis=1)(objects)
-        x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=2, num_class=i,alpha_pos=1,alpha_neg=1,knowledge=True)(x)
-    out_ltn = keras.layers.Concatenate(axis=1)([out_ltn, x])
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
     #out_ltn = keras.layers.Lambda(lambda x: tf.Print(x,[x,x.shape],"ks"))(out_ltn)
     return [out_regr,out_ltn]
