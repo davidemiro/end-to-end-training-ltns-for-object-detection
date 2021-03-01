@@ -268,14 +268,19 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
     predicates = {}
+    predictions = {}
 
     classes = sorted(classes)
+    print(nb_classes)
     for i in range(nb_classes):
         p = ltn.Predicate(num_features=nb_classes, k=6, i=i)
         x = p(out_class)
+        predictions[classes[i]] = x
         predicates[classes[i]] = p
+
         x = Literal(name=str(i))([x,Y[i]])
         x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, name = classes[i])(x)
+        x = keras.layers.Lambda(lambda pt: tf.Print(pt, [pt], "{}".format(i), summarize=2000000))(x)
         output.append(x)
     '''
     #partOF
@@ -302,21 +307,25 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
 
 
     #disjoint of classes
+    count = 0
     for t in classes:
         for t1 in classes:
             if t < t1:
-                l1 = Literal_O(False)(predicates[t](out_class))
-                l2 = Literal_O(False)(predicates[t1](out_class))
+                l1 = Literal_O(False)(predictions[t])
+                l2 = Literal_O(False)(predictions[t1])
                 x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma, name ='disjoint_{}_{}'.format(t,t1))([l1,l2])
+                count+=1
                 output.append(x)
+    print(count)
 
     #at least one class
     at_least_literals = []
     for t in classes:
-        l = Literal_O(True)(predicates[t](out_class))
+        l = Literal_O(True)(predictions[t])
         at_least_literals.append(l)
     x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma,name = 'at_least_one_class')(at_least_literals)
     output.append(x)
+
 
 
     out_ltn = keras.layers.Concatenate(axis=1)(output)

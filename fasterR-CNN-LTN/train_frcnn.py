@@ -308,7 +308,8 @@ for epoch_num in range(num_epochs):
 
 			y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
 			num_classes = len(classes_count)
-			o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
+			#o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
+			o = np.ones((1, 1, num_classes))
 			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y, [Y2[:, sel_samples, :], o])
 
 			losses[iter_num, 0] = loss_rpn[1]
