@@ -15,8 +15,18 @@ def get_data(input_path):
 
 	data_paths = [input_path]
 
+	print('Loading ontology')
+	f = open('keras_frcnn/pascalPartOntology.csv', 'r')
+	ontology = {}
+	for l in f.readlines():
+		classes = l.split(',')
+		classes[-1] = classes[-1][:-1]
+		ontology[classes[0]] = classes[1:]
+	objects = list(ontology.keys())
+
 
 	print('Parsing annotation files')
+
 
 
 
@@ -72,9 +82,11 @@ def get_data(input_path):
 						annotation_data['imageset'] = 'test'
 					else:
 						annotation_data['imageset'] = 'trainval'
-				
+				whole = ''
 				for element_obj in element_objs:
 					class_name = element_obj.find('name').text
+
+
 					if class_name not in classes_count:
 						classes_count[class_name] = 1
 					else:
@@ -89,9 +101,13 @@ def get_data(input_path):
 					x2 = int(round(float(obj_bbox.find('xmax').text)))
 					y2 = int(round(float(obj_bbox.find('ymax').text)))
 					difficulty = 0
+					id = class_name+'_'+str(x1)+'_'+str(x2)+'_'+str(y1)+'_'+str(y2)
+					if class_name in objects:
+						whole = id
+
 
 	
-					annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty})
+					annotation_data['bboxes'].append({'class': class_name, 'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'difficult': difficulty,'id':id,'partOf':whole})
 				all_imgs.append(annotation_data)
 
 				if visualise:

@@ -21,62 +21,20 @@ import keras_frcnn.ltn as ltn
 
 
 def defineGT(labels, num_classes, batch_size):
-	y_l = []
-	y = np.zeros((1, 1, num_classes))
+	y = []
 	for i in range(num_classes):
 		y_i = np.zeros((batch_size, 1))
 		for j in range(batch_size):
 			label = np.argmax(labels[0, j, :])
 			if label == i:
 				y_i[j, 0] = 1
-				y[0, 0, i] = 1
 
-		y_l.append(np.expand_dims(y_i, axis=0))
+		y.append(np.expand_dims(y_i, axis=0))
 
-	return y_l, y
+	return y
 
 
-def defineGT_pos_neg_input(labels, num_classes, batch_size):
-	y = np.zeros((1, 1, (num_classes - 1) * 2))
-	mask_p = []
-	mask_n = []
-	for i in range(num_classes - 1):
-		mask_pos = np.zeros((batch_size, 1))
-		mask_neg = np.zeros((batch_size, 1))
-		num_pos = 0
 
-		for j in range(batch_size):
-			label = np.argmax(labels[0, j, :])
-
-			if label == i:
-				y[0, 0, i] = 1
-				y[0, 0, i + num_classes - 1] = 1
-				mask_pos[j, 0] = 1
-				num_pos += 1
-
-		num_neg = 0
-
-		if num_pos > batch_size / 2:
-			num_pos = batch_size - num_pos
-
-		while num_neg < num_pos:
-			j = randint(0, batch_size - 1)
-			if mask_pos[j, 0] == 0:
-				mask_neg[j, 0] = 1
-				num_neg += 1
-
-		if num_pos == 0:
-			j = randint(0, batch_size - 1)
-			k = randint(0, batch_size - 1)
-			while j != k:
-				k = randint(0, batch_size - 1)
-
-			mask_pos[j, 0] = 1
-			mask_neg[k, 0] = 1
-
-		mask_p.append(np.expand_dims(mask_pos == 1, axis=0))
-		mask_n.append(np.expand_dims(mask_neg == 1, axis=0))
-	return y, mask_p + mask_n
 
 sys.setrecursionlimit(40000)
 
@@ -156,28 +114,7 @@ all_imgs, classes_count, class_mapping = get_data(options.train_path)
 
 cls = sorted(list(class_mapping.keys()))
 class_mapping = {cls[i]:i for i in range(len(cls))}
-'''
-examples_per_classes = [x[1] for x in sorted([x for x in classes_count.items()],key=lambda x:x[0])]
-beta =0.9999
-num_classes = len(examples_per_classes)+1
-tot = np.sum(examples_per_classes)
-examples_per_classes_p = [e/tot for e in examples_per_classes]
 
-effective_pos = [16*e for e in examples_per_classes_p]
-effective_pos.append(16)
-effective_pos = 1.0 - np.power(beta, effective_pos)
-weights_pos = (1.0 - beta) / np.array(effective_pos)
-weights_pos = weights_pos / np.sum(weights_pos) * int(num_classes)
-
-effective_neg = [16+16*(1-e) for e in examples_per_classes_p]
-effective_neg.append(16)
-effective_neg = 1.0 - np.power(beta, effective_neg)
-weights_neg = (1.0 - beta) / np.array(effective_neg)
-weights_neg = weights_neg / np.sum(weights_neg) * int(num_classes)
-
-print(weights_pos)
-print(weights_neg)
-'''
 
 
 if 'bg' not in classes_count:
@@ -231,7 +168,7 @@ roi_input = Input(shape=(None, 4))
 l = len(classes_count)
 
 
-Y_b = [Input(shape=(C.num_rois, 1)) for i in range(l)]
+Y = [Input(shape=(C.num_rois, 1)) for i in range(l)]
 
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
@@ -240,11 +177,11 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y_b)
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y,classes=sorted(list(class_mapping.keys())))
 
 model_rpn = Model(img_input, rpn[:2])
-model_classifier = Model([img_input, roi_input] + Y_b, classifier)
-model_all = Model([img_input, roi_input]+Y_b, rpn[:2] + classifier)
+model_classifier = Model([img_input, roi_input] + Y, classifier)
+model_all = Model([img_input, roi_input]+Y, rpn[:2] + classifier)
 
 
 
@@ -290,7 +227,7 @@ class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-
+cycle = 0
 for epoch_num in range(num_epochs):
 
 
@@ -369,8 +306,10 @@ for epoch_num in range(num_epochs):
 				else:
 					sel_samples = random.choice(pos_samples)
 
-			y_b, y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y_b, [Y2[:, sel_samples, :], y])
+			y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
+			num_classes = len(classes_count)
+			o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
+			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y, [Y2[:, sel_samples, :], o])
 
 			losses[iter_num, 0] = loss_rpn[1]
 			losses[iter_num, 1] = loss_rpn[2]
@@ -440,7 +379,12 @@ for epoch_num in range(num_epochs):
 					log_file_save = open('save_{}.txt'.format(options.name), 'a')
 					log_file_save.write('Check point epoch {}'.format(epoch_num))
 					log_file_save.close()
-					model_all.save_weights("model_{}.hdf5".format(options.name))
+					model_all.save_weights("model_{}_best_{}.hdf5".format(options.name,cycle))
+				if epoch_num % 25 == 0:
+					cycle == epoch_num
+					model_all.save_weights("model_{}_{}.hdf5".format(options.name, epoch_num))
+
+
 
 				break
 

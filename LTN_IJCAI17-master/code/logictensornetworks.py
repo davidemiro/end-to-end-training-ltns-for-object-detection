@@ -30,7 +30,7 @@ def PR(tensor):
 
 def disjunction_of_literals(literals,label="no_label"):
     list_of_literal_tensors = [lit.tensor for lit in literals]
-    literals_tensor = tf.concat(1,list_of_literal_tensors)
+    literals_tensor = tf.concat(list_of_literal_tensors,1)
     if default_tnorm == "product":
         result = 1.0-tf.reduce_prod(1.0-literals_tensor,1,keep_dims=True)
     if default_tnorm=="yager2":
@@ -113,7 +113,7 @@ class Predicate:
         self.V = tf.Variable(tf.random_normal([layers,
                                                self.domain.columns]),
                              name = "V"+label)
-        self.b = tf.Variable(tf.neg(tf.ones([1,layers])),
+        self.b = tf.Variable(tf.negative(tf.ones([1,layers])),
                              name = "b"+label)
         self.u = tf.Variable(tf.ones([layers,1]),
                              name = "u"+label)
@@ -123,8 +123,8 @@ class Predicate:
         if domain is None:
             domain = self.domain
         X = domain.tensor
-        XW = tf.batch_matmul(tf.tile(tf.expand_dims(X, 0), [self.number_of_layers, 1, 1]), self.W)
-        XWX = tf.squeeze(tf.batch_matmul(tf.expand_dims(X, 1), tf.transpose(XW, [1, 2, 0])))
+        XW = tf.matmul(tf.tile(tf.expand_dims(X, 0), [self.number_of_layers, 1, 1]), self.W)
+        XWX = tf.squeeze(tf.matmul(tf.expand_dims(X, 1), tf.transpose(XW, [1, 2, 0])))
         XV = tf.matmul(X, tf.transpose(self.V))
         gX = tf.matmul(tf.tanh(XWX + XV + self.b),self.u)
         return tf.sigmoid(gX)
@@ -162,16 +162,15 @@ class Clause:
 class KnowledgeBase:
 
     def __init__(self,label,clauses,save_path=""):
-        print "defining the knowledge base",label
+        print("defining the knowledge base",label)
         self.label = label
         self.clauses = clauses
         self.parameters = [par for cl in self.clauses for par in cl.parameters]
         if not self.clauses:
             self.tensor = tf.constant(1.0)
         else:
-            clauses_value_tensor = tf.concat(0, [cl.tensor for cl in clauses])
+            clauses_value_tensor = tf.concat([cl.tensor for cl in clauses],0)
             if default_clauses_aggregator == "min":
-                print "clauses aggregator is min"
                 self.tensor = tf.reduce_min(clauses_value_tensor)
             if default_clauses_aggregator == "mean":
                 self.tensor = tf.reduce_mean(clauses_value_tensor)
@@ -193,7 +192,7 @@ class KnowledgeBase:
 
     def penalize_positive_facts(self):
         tensor_for_positive_facts = [tf.reduce_sum(Literal(True,lit.predicate,lit.domain).tensor,keep_dims=True) for cl in self.clauses for lit in cl.literals]
-        return tf.reduce_sum(tf.concat(0,tensor_for_positive_facts))
+        return tf.reduce_sum(tf.concat(tensor_for_positive_facts,0))
 
     def save(self,sess, version = ""):
         save_path = self.saver.save(sess,self.save_path+self.label+version+".ckpt")

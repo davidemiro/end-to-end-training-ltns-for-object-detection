@@ -2,11 +2,23 @@ import tensorflow as tf
 from keras.layers import Layer, Activation
 
 
+class Literal_O(Layer):
+    def __init__(self,polarity):
+        super(Literal_O, self).__init__()
+        self.polarity = polarity
+    def built(self, input_shape):
+        super(Literal_O, self).built(input_shape)
+    def call(self, input, mask=None):
+        if self.polarity:
+            return input
+        else:
+            return 1 - input
+
 class Literal(Layer):
 
-    def __init__(self,num_class,**kwargs):
+    def __init__(self,name,**kwargs):
         super(Literal, self).__init__(**kwargs)
-        self.num_class = num_class
+        self.name = name
 
 
     def build(self, input_shape):
@@ -29,6 +41,5 @@ class Literal(Layer):
         y = tf.reshape(y, (32, 1))
         pt = tf.math.multiply(y, x) + tf.math.multiply((1 - y), (1 - x))
         # x_ = tf.Print(x_,[x_,tf.shape(x_)],"Litteral_{}".format(self.num_class))
-        pt = tf.reshape(pt, (32, 1))
         #pt = tf.Print(pt, [pt], "Literal_{}".format(self.num_class))
         return pt

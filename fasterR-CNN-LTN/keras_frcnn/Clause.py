@@ -1,20 +1,55 @@
 import tensorflow as tf
 from keras.layers import Layer,Activation
+import csv
 
 
 
 
+class Pair(Layer):
+    def __init__(self, batch_size):
+        super(Pair, self).__init__()
+        self.batch_size = batch_size
+    def build(self, input_shape):
+        super(Pair, self).build(input_shape)
+    def call(self, inputs, **kwargs):
+        outputs = []
+        for i in range(self.batch_size):
+            for j in range(self.batch_size):
+                outputs.append(tf.concat([inputs[0,i,:],inputs[0,j,:]],axis=2))
+        return tf.concat(outputs,axis=1)
 
+def get_part_whole_ontology(selected_types):
+    with open('pascalPartOntology.csv') as f:
+        ontologyReader = csv.reader(f)
+        parts_of_whole = {}
+        wholes_of_part = {}
+        for row in ontologyReader:
+            parts_of_whole[row[0]] = row[1:]
+            for t in row[1:]:
+                if t in wholes_of_part:
+                    wholes_of_part[t].append(row[0])
+                else:
+                    wholes_of_part[t] = [row[0]]
+        for whole in parts_of_whole:
+            wholes_of_part[whole] = []
+        for part in wholes_of_part:
+            if part not in parts_of_whole:
+                parts_of_whole[part] = []
+    selected_parts_of_whole = {}
+    selected_wholes_of_part = {}
+    for t in selected_types:
+        selected_parts_of_whole[t] = [p for p in parts_of_whole[t] if p in selected_types]
+        selected_wholes_of_part[t] = [w for w in wholes_of_part[t] if w in selected_types]
+    return selected_parts_of_whole, selected_wholes_of_part
 class Clause(Layer):
     
-    def __init__(self,tnorm,aggregator,num_class,gamma,alpha_pos=None,alpha_neg=None,**kwargs):
+    def __init__(self,tnorm,aggregator,name,gamma,**kwargs):
         super(Clause,self).__init__(**kwargs)
         self.tnorm = tnorm
         self.aggregator = aggregator
-        self.num_class = num_class
         self.gamma = gamma
-        self.alpha_pos = alpha_pos
-        self.alpha_neg = alpha_neg
+        self.name = name
+
 
            
 
@@ -25,11 +60,8 @@ class Clause(Layer):
         return [(1,1)]
     def call(self,input, mask=None):
 
-        print('Predicate {}'.format(self.num_class))
 
-
-        pt = input[0]
-        y  = input[1]
+        pt = tf.concat(input,1)
 
 
         if self.tnorm == "product":
@@ -54,13 +86,13 @@ class Clause(Layer):
         if self.aggregator == "min":
             return tf.reduce_min(result, keep_dims=True)
         if self.aggregator == "logsum":
-            h = tf.negative(tf.reduce_sum(tf.log(pt), keep_dims=True,name="Clause_{}".format(self.num_class)))
+            h = tf.negative(tf.reduce_sum(tf.log(pt), keep_dims=True,name="Clause_"+self.name))
             return h
         if self.aggregator == "focal_loss_logsum":
 
             fl = tf.math.multiply(tf.math.pow((1 - pt), self.gamma), tf.math.log(pt))
             fl = tf.negative(fl)
-            h = tf.reduce_sum(fl, keep_dims=True,name="Clause_{}".format(self.num_class))
+            h = tf.reduce_sum(fl, keep_dims=True,name="Clause_"+self.name)
             return h
 
         

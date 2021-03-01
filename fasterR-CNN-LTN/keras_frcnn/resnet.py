@@ -19,7 +19,10 @@ from keras_frcnn.bb_creation import bb_creation
 from keras_frcnn import ltn
 from keras.layers.merge import concatenate
 from keras_frcnn.Clause import Clause
+from keras_frcnn.Clause import Pair
+from keras_frcnn.Clause import get_part_whole_ontology
 from keras_frcnn.Literal import Literal
+from keras_frcnn.Literal import Literal_O
 import tensorflow as tf
 
 import keras
@@ -243,7 +246,7 @@ def rpn(base_layers,num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y,alpha_pos=None,alpha_neg=None,knowledge=False):
+def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y,Y_partOf=None,classes=None):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -264,12 +267,58 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
+    predicates = {}
+
+    classes = sorted(classes)
     for i in range(nb_classes):
-        x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
-        x = Literal(num_class=i)([x,Y[i]])
-        x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, num_class=i)([x,Y[i]])
-      #  x = keras.layers.Lambda(lambda x: tf.Print(x,[x],"cls"))(x)
+        p = ltn.Predicate(num_features=nb_classes, k=6, i=i)
+        x = p(out_class)
+        predicates[classes[i]] = p
+        x = Literal(name=str(i))([x,Y[i]])
+        x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, name = classes[i])(x)
         output.append(x)
+    '''
+    #partOF
+    x = Pair(out_class)
+    partOf = ltn.Predicate(num_features=nb_classes*2,k =6,i = nb_classes + 1)
+    x = partOf(x)
+    x = Literal([x,Y_partOf])
+    x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='partOf')(x)
+    output.append(x)
+    
+    #axioms
+    parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
+    
+    x_parts_of_wholes = [Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='parts_of_wholes_'+w)
+                                         ([Literal_O(False)(predicates[w](out_class)),
+                                           Literal_O(False)(partOf(Pair(out_class)))] + [Literal_0(True)(predicates[p](out_class)) for p in parts_of_whole[w]]
+                                            for w in parts_of_whole.keys()]
+
+    x_wholes_of_parts = [Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='parts_of_wholes_'+w)
+                                         ([Literal_O(False)(predicates[w](out_class)),
+                                           Literal_O(False)(partOf(Pair(out_class)))] + [Literal_O(True)(predicates[p](out_class)) for p in wholes_of_part[w]]
+                                           for w in wholes_of_part.keys()]
+    '''
+
+
+    #disjoint of classes
+    for t in classes:
+        for t1 in classes:
+            if t < t1:
+                l1 = Literal_O(False)(predicates[t](out_class))
+                l2 = Literal_O(False)(predicates[t1](out_class))
+                x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma, name ='disjoint_{}_{}'.format(t,t1))([l1,l2])
+                output.append(x)
+
+    #at least one class
+    at_least_literals = []
+    for t in classes:
+        l = Literal_O(True)(predicates[t](out_class))
+        at_least_literals.append(l)
+    x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma,name = 'at_least_one_class')(at_least_literals)
+    output.append(x)
+
+
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
     #out_ltn = keras.layers.Lambda(lambda x: tf.Print(x,[x,x.shape],"ks"))(out_ltn)

@@ -10,8 +10,10 @@ from sklearn.metrics import average_precision_score
 models =['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha-2','focal_logsum_neptune_alpha_prof']
 models_name =['FRCNN','Arch13 (focal loss)','Arch14 (focal loss con alpha)','Arch15 (focal loss con alpha per pos e neg)']
 
-models = ['PASCAL','focal_logsum_neptune-2','focal_logsum_bg_no_alpha']
-models_name =['FRCNN','Arch13 (focal loss no alpha)','Arch13 (focal loss no alpha) with bg']
+#models = ['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha_prof','focal_logsum_bg_no_alpha','focal_logsum_bg_alpha']
+#models_name =['FasterRCNN','FasterRCNN-LTN','FasterRCNN-LTN with alpha','FasterRCNN-LTN with bg','FasterRCNN-LTN with alpha and bg']
+models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9a']
+models_name =['FasterRCNN','FasterRCNN-LTN']
 def loadTP(name):
     T_file = open('/Users/davidemiro/Downloads/T_{}.pkl'.format(name),'rb')
     P_file = open('/Users/davidemiro/Downloads/P_{}.pkl'.format(name),'rb')
@@ -28,33 +30,23 @@ def plot_roc_curve(models,T,P,label):
 
     aucs = []
 
-    plt.title('ROC curves {} class'.format(label))
+    plt.title('Precision-Recall curves')
     for string,t,p in zip(models,T,P):
-
-
-        y_test = t[label]
-        y_test_roc = np.array([([0, 1] if y else [1, 0]) for y in y_test])
-
-        y_score = p[label]
-
-        # Compute ROC curve and ROC area for each class
-        fpr = dict()
-        tpr = dict()
-        roc_auc = dict()
-
-
+        y_test = []
+        y_score = []
+        for l in label:
+            y_test = y_test + t[l]
+            y_score = y_score + p[l]
         p,r,th = precision_recall_curve(y_test, y_score)
-
-
         AP = average_precision_score(y_test, y_score)
-        plt.plot(r,p, label="{}, ap={}".format(string,str(AP)))
+        plt.plot(r,p, label="{}, mAP={}".format(string,str(AP)))
 
 
 
     plt.legend(loc = 0)
     plt.xlabel('recall')
     plt.ylabel('precision')
-    plt.savefig('/Users/davidemiro/Desktop/AP_curves_comparison/Precision_Recall_{}.png'.format(label))
+    plt.savefig('/Users/davidemiro/Desktop/Precision_Recall_partsa.png')
     plt.show()
 
 
@@ -80,7 +72,7 @@ for m in models:
     P.append(p)
 
 labels =list(P[0].keys())
-for l in labels:
-    plot_roc_curve(models_name,T,P,l)
+
+plot_roc_curve(models_name,T,P,labels)
 
 

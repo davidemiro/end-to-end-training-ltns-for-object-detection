@@ -3,7 +3,7 @@ import tensorflow as tf
 import random, os, pdb
 import logictensornetworks as ltn
 import sys
-import neptune
+
 
 print(sys.version)
 print(tf.VERSION)
@@ -35,9 +35,9 @@ idxs_of_negative_examples_of_partOf = np.where(partOf_of_pairs_of_train_data == 
 
 existing_types = [t for t in selected_types if idxs_of_positive_examples_of_types[t].size > 0]
 
-print "non empty types in train data", existing_types
-print "finished to upload and analyze data"
-print "Start model definition"
+print("non empty types in train data", existing_types)
+print("finished to upload and analyze data")
+print("Start model definition")
 
 # domain definition
 
@@ -83,16 +83,21 @@ partOf_is_antisymmetric = [ltn.Clause([ltn.Literal(False, isPartOf, p0w0), ltn.L
 partof_is_irreflexive = [ltn.Clause([ltn.Literal(False, isPartOf, oo)],
                                    label = "part_of_is_irreflexive", weight = 0.37)]
 
+# Leg and partOf(o,Leg) -> Cat or Dog ....
 clauses_for_parts_of_wholes = [ltn.Clause([ltn.Literal(False, isOfType[w], w1[w]),
                                            ltn.Literal(False, isPartOf, p1w1[w])] + \
                                           [ltn.Literal(True, isOfType[p], p1[w]) for p in parts_of_whole[w]],
                                           label = "parts_of_" + w) for w in parts_of_whole.keys()]
 
+# Cat and part(Cat,p) -> Head or Leg or Muzzle or ...
 clauses_for_wholes_of_parts = [ltn.Clause([ltn.Literal(False, isOfType[p], p2[p]),
                                            ltn.Literal(False, isPartOf, p2w2[p])] +
                                           [ltn.Literal(True, isOfType[w], w2[p]) for w in wholes_of_part[p]],
                                           label="wholes_of_" + p) for p in wholes_of_part.keys()]
 
+# P -> Q
+# Cat -> not Dog
+# P -> Q == not P or not Q
 clauses_for_disjoint_types = [ltn.Clause([ltn.Literal(False,isOfType[t],o),
                                           ltn.Literal(False,isOfType[t1],o)],label=t+"_is_not_"+t1) for t in selected_types for t1 in selected_types if t < t1]
 
@@ -136,17 +141,17 @@ def add_noise_to_data(noise_ratio):
     idxs_of_noisy_positive_examples_of_partOf = np.where(partOf_of_pairs_of_train_data)[0]
     idxs_of_noisy_negative_examples_of_partOf = np.where(partOf_of_pairs_of_train_data == False)[0]
 
-    print "I have introduces the followins errors"
+    print("I have introduces the followins errors")
     for t in selected_types:
-        print "wrong positive", t, len(np.setdiff1d(idxs_of_noisy_positive_examples_of_types[t],
-                                                    idxs_of_positive_examples_of_types[t]))
-        print "wrong negative", t, len(np.setdiff1d(idxs_of_noisy_negative_examples_of_types[t],
-                                                    idxs_of_negative_examples_of_types[t]))
+        print("wrong positive", t, len(np.setdiff1d(idxs_of_noisy_positive_examples_of_types[t],
+                                                    idxs_of_positive_examples_of_types[t])))
+        print("wrong negative", t, len(np.setdiff1d(idxs_of_noisy_negative_examples_of_types[t],
+                                                    idxs_of_negative_examples_of_types[t])))
 
-    print "wrong positive partof", len(np.setdiff1d(idxs_of_noisy_positive_examples_of_partOf,
-                                                    idxs_of_positive_examples_of_partOf))
-    print "wrong negative partof", len(np.setdiff1d(idxs_of_noisy_negative_examples_of_partOf,
-                                                    idxs_of_negative_examples_of_partOf))
+    print("wrong positive partof", len(np.setdiff1d(idxs_of_noisy_positive_examples_of_partOf,
+                                                    idxs_of_positive_examples_of_partOf)))
+    print("wrong negative partof", len(np.setdiff1d(idxs_of_noisy_negative_examples_of_partOf,
+                                                    idxs_of_negative_examples_of_partOf)))
 
     return idxs_of_noisy_positive_examples_of_types, \
            idxs_of_noisy_negative_examples_of_types, \
@@ -181,6 +186,13 @@ def train(number_of_training_iterations=2500,
                    clauses_for_disjoint_types + \
                    clause_for_at_least_one_type
 
+    print('ciao')
+    feed_dict = get_feed_dict(idxs_of_noisy_positive_examples_of_types,
+                              idxs_of_noisy_negative_examples_of_types,
+                              idxs_of_noisy_positive_examples_of_partOf,
+                              idxs_of_noisy_negative_examples_of_partOf,
+                              pairs_of_train_data,
+                              with_constraints=True)
     # defining the label of the background knowledge
     if  with_constraints:
         kb_label = "KB_wc_nr_"+str(noise_ratio)
@@ -221,7 +233,7 @@ def train(number_of_training_iterations=2500,
         if train_kb:
             sat_level = sess.run(KB.tensor,feed_dict)
             loss = sess.run(KB.loss,feed_dict)
-            neptune.log_metric('loss',loss)
+           # neptune.log_metric('loss',loss)
             if np.isnan(sat_level):
                 train_kb = False
             if sat_level >= saturation_limit:
@@ -229,8 +241,7 @@ def train(number_of_training_iterations=2500,
                 train_kb = False
             else:
                 KB.train(sess, feed_dict)
-        print str(i) + ' --> ' + str(sat_level)
-    print "end of training"
+        print(str(i) + ' --> ' + str(sat_level))
     sess.close()
 
 
@@ -240,7 +251,6 @@ def get_feed_dict(idxs_of_pos_ex_of_types,
                   idxs_of_neg_ex_of_partOf,
                   pairs_data,
                   with_constraints=True):
-    print "selecting new training data"
     feed_dict = {}
 
     # positive and negative examples for types
@@ -290,11 +300,10 @@ def get_feed_dict(idxs_of_pos_ex_of_types,
             feed_dict[w0.tensor],
             feed_dict[p0.tensor],
             feed_dict[p0w0.tensor][:, -1:-3:-1]], axis = 1)
-    print "feed dict size is as follows"
     for k in feed_dict:
-        print k.name, feed_dict[k].shape
+        print(k.name, feed_dict[k].shape)
     return feed_dict
-neptune.init('davidemiro/sandbox', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiYjI1NGI5OWItYjJjMC00MTY0LThkYTctOTdmMjYyMWZkNDEyIn0=')
+#neptune.init('davidemiro/sandbox', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiYjI1NGI5OWItYjJjMC00MTY0LThkYTctOTdmMjYyMWZkNDEyIn0=')
 for nr in [0.0, 0.1, 0.2, 0.3, 0.4]:
     for wc in [False]:
         params ={
@@ -322,15 +331,7 @@ for nr in [0.0, 0.1, 0.2, 0.3, 0.4]:
         ltn.default_aggregator = params['default_aggregator']
         ltn.default_positive_fact_penality = params['default_positive_fact_penality']
         ltn.default_clauses_aggregator = params['default_clauses_aggregator']
-        
-        exp_name = 'LTN_originale_prova'
-        neptune.create_experiment(name=exp_name,
-                          params=params)
-        neptune.append_tag('LTN_originale')
-        neptune.append_tag('unfficial_features')
-        neptune.append_tag('with_constrains='.format(wc))
-        neptune.append_tag('noise='.format(nr))
         train(number_of_training_iterations=1000,
               frequency_of_feed_dict_generation=100,
-              with_constraints=wc,noise_ratio=nr,
+              with_constraints=True,noise_ratio=nr,
               saturation_limit=.95)

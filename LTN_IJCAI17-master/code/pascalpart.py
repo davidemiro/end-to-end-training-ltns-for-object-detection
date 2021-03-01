@@ -28,7 +28,9 @@ selected_types = np.array(['bottle','body','cap','pottedplant','plant','pot','tv
 #selected_types = np.array(['person','arm','ear','ebrow','foot','hair','hand','mouth','nose','eye','head','leg','neck','torso','cat','tail','bird','animal_wing','beak','sheep','horn','muzzle','cow','dog','horse','hoof'])
 
 # uncomment this line for training all the object types
-#selected_types = types[1:]
+selected_types = types[1:]
+selected_types =[s.decode('UTF-8') for s in selected_types]
+selected_types =[str(s) for s in selected_types]
 
 objects = ltn.Domain(number_of_features-1,label="a_bounding_box")
 
@@ -73,7 +75,7 @@ def get_data(train_or_test_swritch,max_rows=10000000):
     idx_of_cleaned_data = np.where(np.logical_and(
         np.all(data[:, -2:] - data[:, -4:-2] >= zero_distance_threshold, axis=1),
         np.in1d(types_of_data,selected_types)))[0]
-    print "deleting", len(data) - len(idx_of_cleaned_data), "small bb out of", data.shape[0], "bb"
+    print("deleting", len(data) - len(idx_of_cleaned_data), "small bb out of", data.shape[0], "bb")
     data = data[idx_of_cleaned_data]
     data[:, -4:] /= 500
 
@@ -147,4 +149,4 @@ def recall(conf_matrix,gold_array=None):
 def f1(precision,recall):
     return np.multiply(2*precision,recall)/(precision + recall)
 
-print "end of new pascalpart.py"
+print("end of new pascalpart.py")
