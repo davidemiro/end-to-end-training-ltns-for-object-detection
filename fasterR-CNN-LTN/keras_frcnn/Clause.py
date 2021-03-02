@@ -81,7 +81,7 @@ class Clause(Layer):
         if self.aggregator == "gmean":
             return tf.exp(tf.mul(tf.reduce_sum(tf.log(result), keep_dims=True),tf.inv(tf.to_float(tf.size(result)))))
         if self.aggregator == "hmean":
-            h = tf.div(tf.to_float(tf.size(result)), tf.reduce_sum(tf.reciprocal(result), keep_dims=True))
+            h = tf.div(tf.to_float(tf.size(pt)), tf.reduce_sum(tf.reciprocal(pt), keep_dims=True))
             return h
         if self.aggregator == "min":
             return tf.reduce_min(result, keep_dims=True)

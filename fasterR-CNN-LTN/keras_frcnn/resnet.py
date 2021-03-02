@@ -280,7 +280,6 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
 
         x = Literal(name=str(i))([x,Y[i]])
         x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, name = classes[i])(x)
-        x = keras.layers.Lambda(lambda pt: tf.Print(pt, [pt], "{}".format(i), summarize=2000000))(x)
         output.append(x)
     '''
     #partOF
