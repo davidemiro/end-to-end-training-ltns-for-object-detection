@@ -187,8 +187,8 @@ model_all = Model([img_input, roi_input]+Y, rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights("model_{}_{}.hdf5".format(options.name,25), by_name=True)
+	model_classifier.load_weights("model_{}_{}.hdf5".format(options.name,25), by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -228,7 +228,7 @@ print('Starting training')
 
 vis = True
 cycle = 0
-for epoch_num in range(num_epochs):
+for epoch_num in range(25,num_epochs):
 
 
 
@@ -308,8 +308,7 @@ for epoch_num in range(num_epochs):
 
 			y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
 			num_classes = len(classes_count)
-			#o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
-			o = np.ones((1, 1, num_classes))
+			o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
 			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y, [Y2[:, sel_samples, :], o])
 
 			losses[iter_num, 0] = loss_rpn[1]
@@ -373,6 +372,10 @@ for epoch_num in range(num_epochs):
 				iter_num = 0
 				start_time = time.time()
 
+				if epoch_num % 25 == 0:
+					cycle == epoch_num
+					model_all.save_weights("model_{}_{}.hdf5".format(options.name, epoch_num))
+
 				if curr_loss < best_loss:
 					if C.verbose:
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss, curr_loss))
@@ -381,9 +384,7 @@ for epoch_num in range(num_epochs):
 					log_file_save.write('Check point epoch {}'.format(epoch_num))
 					log_file_save.close()
 					model_all.save_weights("model_{}_best_{}.hdf5".format(options.name,cycle))
-				if epoch_num % 25 == 0:
-					cycle == epoch_num
-					model_all.save_weights("model_{}_{}.hdf5".format(options.name, epoch_num))
+
 
 
 
