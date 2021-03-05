@@ -102,7 +102,7 @@ def get_data(input_path):
 					y2 = int(round(float(obj_bbox.find('ymax').text)))
 					difficulty = 0
 					id = class_name+'_'+str(x1)+'_'+str(x2)+'_'+str(y1)+'_'+str(y2)
-					if class_name in objects:
+					if class_name.lower() in objects:
 						whole = id
 
 

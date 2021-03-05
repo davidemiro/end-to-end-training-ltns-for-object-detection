@@ -83,13 +83,13 @@ partOf_is_antisymmetric = [ltn.Clause([ltn.Literal(False, isPartOf, p0w0), ltn.L
 partof_is_irreflexive = [ltn.Clause([ltn.Literal(False, isPartOf, oo)],
                                    label = "part_of_is_irreflexive", weight = 0.37)]
 
-# Leg and partOf(o,Leg) -> Cat or Dog ....
+# Leg and partOf(Leg,o) -> Cat or Dog ....
 clauses_for_parts_of_wholes = [ltn.Clause([ltn.Literal(False, isOfType[w], w1[w]),
                                            ltn.Literal(False, isPartOf, p1w1[w])] + \
                                           [ltn.Literal(True, isOfType[p], p1[w]) for p in parts_of_whole[w]],
                                           label = "parts_of_" + w) for w in parts_of_whole.keys()]
 
-# Cat and part(Cat,p) -> Head or Leg or Muzzle or ...
+# Cat and part(p,Cat) -> Head or Leg or Muzzle or ...
 clauses_for_wholes_of_parts = [ltn.Clause([ltn.Literal(False, isOfType[p], p2[p]),
                                            ltn.Literal(False, isPartOf, p2w2[p])] +
                                           [ltn.Literal(True, isOfType[w], w2[p]) for w in wholes_of_part[p]],

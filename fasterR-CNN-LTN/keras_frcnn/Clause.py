@@ -1,13 +1,21 @@
 import tensorflow as tf
 from keras.layers import Layer,Activation
+from keras_frcnn.bb_creation import  bb_creation
 import csv
 
 
 
+def containment_ratios_between_two_bbxes(bb1, bb2):
+    bb1_area = (bb1[-2] - bb1[-4]) * (bb1[-1] - bb1[-3])
+    bb2_area = (bb2[-2] - bb2[-4]) * (bb2[-1] - bb2[-3])
+    w_intersec = tf.math.maximum(0.0,tf.math.minimum(bb1[-2], bb2[-2]) - tf.math.maximum(bb1[-4], bb2[-4]))
+    h_intersec = tf.math.maximum(0.0,tf.math.minimum(bb1[-1], bb2[-1]) - tf.math.maximum(bb1[-3], bb2[-3]))
+    bb_area_intersection = w_intersec * h_intersec
+    return [bb_area_intersection/bb1_area, bb_area_intersection/bb2_area]
 
 class Pair(Layer):
-    def __init__(self, batch_size):
-        super(Pair, self).__init__()
+    def __init__(self, batch_size,**kwargs):
+        super(Pair, self).__init__(**kwargs)
         self.batch_size = batch_size
     def build(self, input_shape):
         super(Pair, self).build(input_shape)
@@ -15,11 +23,15 @@ class Pair(Layer):
         outputs = []
         for i in range(self.batch_size):
             for j in range(self.batch_size):
-                outputs.append(tf.concat([inputs[0,i,:],inputs[0,j,:]],axis=2))
+                cts = containment_ratios_between_two_bbxes(inputs[0, i, :], inputs[0, j, :])
+                x = tf.concat([inputs[0,i,:],inputs[0,j,:],cts],axis=0)
+                x = tf.expand_dims(tf.expand_dims(x, axis=0), axis=0)
+                outputs.append(x)
         return tf.concat(outputs,axis=1)
 
 def get_part_whole_ontology(selected_types):
-    with open('pascalPartOntology.csv') as f:
+    selected_types = [s.lower() for s in selected_types]
+    with open('keras_frcnn/pascalPartOntology.csv') as f:
         ontologyReader = csv.reader(f)
         parts_of_whole = {}
         wholes_of_part = {}

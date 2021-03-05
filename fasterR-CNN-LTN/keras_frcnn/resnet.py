@@ -246,7 +246,26 @@ def rpn(base_layers,num_anchors):
     return [x_class, x_regr, base_layers]
 
 
-def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y,Y_partOf=None,classes=None):
+def get_parts(batch,batch_size):
+    output = []
+    for p in range(batch_size):
+        for _ in range(batch_size):
+            output.append(batch[p,:])
+    o = tf.concat(output,axis=0)
+    o = tf.expand_dims(o,axis=1)
+    return o
+
+def get_wholes(batch,batch_size):
+    output = []
+    for _ in range(batch_size):
+        for w in range(batch_size):
+            output.append(batch[w, :])
+    o = tf.concat(output, axis=0)
+    o = tf.expand_dims(o, axis=1)
+    return o
+
+
+def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y,Y_partOf=None,classes=None,std_x=None, std_y=None, std_w=None, std_h=None):
 
     # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
 
@@ -267,7 +286,6 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
    # tensors = bb_creation(nb_classes, num_rois, std_x, std_y, std_w, std_h)([out_regr, out_class, input_rois, base_layers])
     output = []
-    predicates = {}
     predictions = {}
 
     classes = sorted(classes)
@@ -276,39 +294,62 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
         p = ltn.Predicate(num_features=nb_classes, k=6, i=i)
         x = p(out_class)
         predictions[classes[i]] = x
-        predicates[classes[i]] = p
 
-        x = Literal(name=str(i))([x,Y[i]])
+        x = Literal(name=str(i),batch_size=num_rois)([x,Y[i]])
         x = Clause(tnorm=tnorm, aggregator=aggregator,gamma=gamma, name = classes[i])(x)
         output.append(x)
-    '''
+
+
     #partOF
-    x = Pair(out_class)
-    partOf = ltn.Predicate(num_features=nb_classes*2,k =6,i = nb_classes + 1)
-    x = partOf(x)
-    x = Literal([x,Y_partOf])
+
+    x = bb_creation(nb_classes,num_rois)([out_class,input_rois,base_layers])
+    x = Pair(num_rois)(x)
+    partOf = ltn.Predicate(num_features=(nb_classes+5)*2, k = 6, i = nb_classes + 1)
+    partOf_prediction = partOf(x)
+    x = Literal(name='partOf_literal',batch_size=num_rois*num_rois)([partOf_prediction,Y_partOf])
     x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='partOf')(x)
     output.append(x)
     
     #axioms
     parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
-    
-    x_parts_of_wholes = [Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='parts_of_wholes_'+w)
-                                         ([Literal_O(False)(predicates[w](out_class)),
-                                           Literal_O(False)(partOf(Pair(out_class)))] + [Literal_0(True)(predicates[p](out_class)) for p in parts_of_whole[w]]
-                                            for w in parts_of_whole.keys()]
-
-    x_wholes_of_parts = [Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='parts_of_wholes_'+w)
-                                         ([Literal_O(False)(predicates[w](out_class)),
-                                           Literal_O(False)(partOf(Pair(out_class)))] + [Literal_O(True)(predicates[p](out_class)) for p in wholes_of_part[w]]
-                                           for w in wholes_of_part.keys()]
-    '''
 
 
+    parts = {}
+    wholes = {}
+
+    for k in predictions.keys():
+        if k == 'bg':
+            continue
+        parts[k.lower()] = keras.layers.Lambda(lambda x: get_parts(x,num_rois))(predictions[k])
+        wholes[k.lower()] = keras.layers.Lambda(lambda x: get_wholes(x,num_rois))(predictions[k])
+
+    #parts of whole
+    for w in parts_of_whole.keys():
+
+        l0 = Literal_O(False)(wholes[w])
+        l1 = Literal_O(False)(partOf_prediction)
+        literals = [l0,l1]
+
+        for p in parts_of_whole[w]:
+            l = Literal_O(True)(parts[p])
+            literals.append(l)
+        x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='parts_of_wholes_'+w)(literals)
+        output.append(x)
+
+    #wholes of parts
+    for p in wholes_of_part.keys():
+        l0 = Literal_O(False)(parts[p])
+        l1 = Literal_O(False)(partOf_prediction)
+        literals = [l0, l1]
+        for w in wholes_of_part[p]:
+            l = Literal_O(True)(wholes[w])
+            literals.append(l)
+        x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='wholes_of_parts_' + p)(literals)
+        output.append(x)
     #disjoint of classes
     count = 0
-    for t in classes:
-        for t1 in classes:
+    for t1 in classes:
+        for t in classes:
             if t < t1:
                 l1 = Literal_O(False)(predictions[t])
                 l2 = Literal_O(False)(predictions[t1])
@@ -324,6 +365,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
         at_least_literals.append(l)
     x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma,name = 'at_least_one_class')(at_least_literals)
     output.append(x)
+
 
 
 

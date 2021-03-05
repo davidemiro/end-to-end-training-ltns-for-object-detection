@@ -169,6 +169,8 @@ l = len(classes_count)
 
 
 Y = [Input(shape=(C.num_rois, 1)) for i in range(l)]
+Y_partOf = Input(shape=(C.num_rois*C.num_rois, 1))
+
 
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
@@ -177,18 +179,20 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y,classes=sorted(list(class_mapping.keys())))
+
+
+classifier = nn.classifier(shared_layers,roi_input,C.num_rois,len(class_mapping),'luk','focal_loss_logsum','linear',2,Y,Y_partOf,classes=sorted(list(class_mapping.keys())),std_x=C.classifier_regr_std[0], std_y=C.classifier_regr_std[1], std_w=C.classifier_regr_std[2], std_h=C.classifier_regr_std[3])
 
 model_rpn = Model(img_input, rpn[:2])
-model_classifier = Model([img_input, roi_input] + Y, classifier)
-model_all = Model([img_input, roi_input]+Y, rpn[:2] + classifier)
+model_classifier = Model([img_input, roi_input] + Y+[Y_partOf], classifier)
+model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights("model_{}_{}.hdf5".format(options.name,25), by_name=True)
-	model_classifier.load_weights("model_{}_{}.hdf5".format(options.name,25), by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -228,7 +232,7 @@ print('Starting training')
 
 vis = True
 cycle = 0
-for epoch_num in range(25,num_epochs):
+for epoch_num in range(num_epochs):
 
 
 
@@ -261,7 +265,7 @@ for epoch_num in range(25,num_epochs):
 			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7,
 									   max_boxes=300)
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-			X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data, C, class_mapping)
+			X2, Y1, Y2, Y3, IouS = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
 
 			if X2 is None:
 				rpn_accuracy_rpn_monitor.append(0)
@@ -305,11 +309,19 @@ for epoch_num in range(25,num_epochs):
 					sel_samples = random.choice(neg_samples)
 				else:
 					sel_samples = random.choice(pos_samples)
+			Y3_selected = []
+			for i in sel_samples:
+				for j in sel_samples:
+					Y3_selected.append(Y3[i][j])
+			Y3_selected = np.array(Y3_selected)
+			Y3_selected = np.expand_dims(np.expand_dims(Y3_selected,0),2)
+
+
 
 			y = defineGT(Y1[:, sel_samples, :], len(class_mapping), C.num_rois)
 			num_classes = len(classes_count)
-			o = np.ones((1,1,num_classes + num_classes*(num_classes - 1)//2 + 1))
-			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y, [Y2[:, sel_samples, :], o])
+			o = np.ones((1,1,1950))
+			loss_class = model_classifier.train_on_batch([X, X2[:, sel_samples, :]] + y+[Y3_selected], [Y2[:, sel_samples, :], o])
 
 			losses[iter_num, 0] = loss_rpn[1]
 			losses[iter_num, 1] = loss_rpn[2]
@@ -373,7 +385,7 @@ for epoch_num in range(25,num_epochs):
 				start_time = time.time()
 
 				if epoch_num % 25 == 0:
-					cycle == epoch_num
+					cycle = epoch_num
 					model_all.save_weights("model_{}_{}.hdf5".format(options.name, epoch_num))
 
 				if curr_loss < best_loss:
@@ -384,10 +396,6 @@ for epoch_num in range(25,num_epochs):
 					log_file_save.write('Check point epoch {}'.format(epoch_num))
 					log_file_save.close()
 					model_all.save_weights("model_{}_best_{}.hdf5".format(options.name,cycle))
-
-
-
-
 				break
 
 		except Exception as e:

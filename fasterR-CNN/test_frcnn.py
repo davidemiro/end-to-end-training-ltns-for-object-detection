@@ -147,10 +147,10 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
-
+'''
 model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_rpn_original.hdf5', by_name=True)
 model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_classifier_original.hdf5', by_name=True)
-
+'''
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
@@ -174,11 +174,33 @@ for idx, img_data in enumerate(test_imgs):
 	img_name = img_data['filepath'][-15:-4]
 	print(img_name)
 	st = time.time()
+	img = cv2.imread(filepath)
+	X, ratio = format_img(img, C)
+	for b in img_data['bboxes']:
+		(real_x1, real_y1, real_x2, real_y2) = b['x1'], b['y1'], b['x2'], b['y2']
+		key = b['class']
 
+		cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2),
+					  (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])), 2)
+
+		textLabel = '{}'.format(b['id'])
+
+		(retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 1, 1)
+		textOrg = (real_x1, real_y1 - 0)
+
+		cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5),
+					  (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
+		cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5),
+					  (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
+		cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+
+	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}_gt.png'.format(img_name), img)
+'''
 
 	img = cv2.imread(filepath)
 
 	X, ratio = format_img(img, C)
+
 
 	if K.image_dim_ordering() == 'tf':
 		X = np.transpose(X, (0, 2, 3, 1))
@@ -267,3 +289,4 @@ for idx, img_data in enumerate(test_imgs):
 #	cv2.imshow('img', img)
 #	cv2.waitKey(0)
 	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}.png'.format(img_name), img)
+'''
