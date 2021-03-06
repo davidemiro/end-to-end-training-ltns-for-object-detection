@@ -21,8 +21,8 @@ class Pair(Layer):
         super(Pair, self).build(input_shape)
     def call(self, inputs, **kwargs):
         outputs = []
-        for i in range(self.batch_size):
-            for j in range(self.batch_size):
+        for i in range(self.batch_size//2):
+            for j in range(self.batch_size//2):
                 cts = containment_ratios_between_two_bbxes(inputs[0, i, :], inputs[0, j, :])
                 x = tf.concat([inputs[0,i,:],inputs[0,j,:],cts],axis=0)
                 x = tf.expand_dims(tf.expand_dims(x, axis=0), axis=0)
@@ -106,6 +106,8 @@ class Clause(Layer):
             fl = tf.negative(fl)
             h = tf.reduce_sum(fl, keep_dims=True,name="Clause_"+self.name)
             return h
+
+
 
         
         

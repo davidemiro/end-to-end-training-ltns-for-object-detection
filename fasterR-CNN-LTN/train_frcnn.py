@@ -169,7 +169,7 @@ l = len(classes_count)
 
 
 Y = [Input(shape=(C.num_rois, 1)) for i in range(l)]
-Y_partOf = Input(shape=(C.num_rois*C.num_rois, 1))
+Y_partOf = Input(shape=(C.num_rois/2*C.num_rois/2, 1))
 
 
 # define the base network (resnet here, can be VGG, Inception, etc)
@@ -310,8 +310,8 @@ for epoch_num in range(num_epochs):
 				else:
 					sel_samples = random.choice(pos_samples)
 			Y3_selected = []
-			for i in sel_samples:
-				for j in sel_samples:
+			for i in sel_samples[0:C.num_rois//2]:
+				for j in sel_samples[0:C.num_rois//2]:
 					Y3_selected.append(Y3[i][j])
 			Y3_selected = np.array(Y3_selected)
 			Y3_selected = np.expand_dims(np.expand_dims(Y3_selected,0),2)

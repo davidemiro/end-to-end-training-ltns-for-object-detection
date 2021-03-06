@@ -248,8 +248,8 @@ def rpn(base_layers,num_anchors):
 
 def get_parts(batch,batch_size):
     output = []
-    for p in range(batch_size):
-        for _ in range(batch_size):
+    for p in range(batch_size//2):
+        for _ in range(batch_size//2):
             output.append(batch[p,:])
     o = tf.concat(output,axis=0)
     o = tf.expand_dims(o,axis=1)
@@ -257,8 +257,8 @@ def get_parts(batch,batch_size):
 
 def get_wholes(batch,batch_size):
     output = []
-    for _ in range(batch_size):
-        for w in range(batch_size):
+    for _ in range(batch_size//2):
+        for w in range(batch_size//2):
             output.append(batch[w, :])
     o = tf.concat(output, axis=0)
     o = tf.expand_dims(o, axis=1)
@@ -302,15 +302,18 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
 
     #partOF
 
-    x = bb_creation(nb_classes,num_rois)([out_class,input_rois,base_layers])
+    x = bb_creation(nb_classes, num_rois)([out_class, input_rois, base_layers])
     x = Pair(num_rois)(x)
-    partOf = ltn.Predicate(num_features=(nb_classes+5)*2, k = 6, i = nb_classes + 1)
+    partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
     partOf_prediction = partOf(x)
-    x = Literal(name='partOf_literal',batch_size=num_rois*num_rois)([partOf_prediction,Y_partOf])
+    x = Literal(name='partOf_literal', batch_size=num_rois//2 * num_rois//2)([partOf_prediction, Y_partOf])
     x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='partOf')(x)
     output.append(x)
+
+
     
     #axioms
+
     parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
 
 
