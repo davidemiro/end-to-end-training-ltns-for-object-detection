@@ -316,7 +316,6 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     
     parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
 
-
     parts = {}
     wholes = {}
 
