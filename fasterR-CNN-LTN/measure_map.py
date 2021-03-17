@@ -228,7 +228,8 @@ for idx, img_data in enumerate(test_imgs):
         ROIs = np.expand_dims(R[C.num_rois * jk:C.num_rois * (jk + 1), :], axis=0)
         if ROIs.shape[1] == 0:
             break
-
+        gt_partOf = []
+        dets = []
         if jk == R.shape[0] // C.num_rois:
             # pad R
             curr_shape = ROIs.shape
@@ -237,8 +238,7 @@ for idx, img_data in enumerate(test_imgs):
             ROIs_padded[:, :curr_shape[1], :] = ROIs
             ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
             ROIs = ROIs_padded
-            gt_partOf = []
-            dets =[]
+
             for i in range(C.num_rois):
                 for j in range(C.num_rois):
                     if i + jk * C.num_rois >= R.shape[0]:
@@ -265,19 +265,13 @@ for idx, img_data in enumerate(test_imgs):
         P_partOf = []
         T_partOf = []
         p_partof = {}
-        t_partOf = {}
+
         for ii in range(P_part_of.shape[1]):
+
+
 
             P_partOf.append(P_part_of[0,ii])
             T_partOf.append(gt_partOf[ii])
-
-
-
-
-
-
-
-
 
         for ii in range(P_cls.shape[1]):
 

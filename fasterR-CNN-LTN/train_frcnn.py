@@ -191,8 +191,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100.hdf5', by_name=True)
-	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100.hdf5', by_name=True)
+	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_115.hdf5', by_name=True)
+	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_115.hdf5', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -225,13 +225,13 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 13.967824795
+best_loss = 12.1460377394
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-for epoch_num in range(107,num_epochs):
+for epoch_num in range(115,num_epochs):
 
 
 
@@ -264,7 +264,7 @@ for epoch_num in range(107,num_epochs):
 			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7,
 									   max_boxes=300)
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-			X2, Y1, Y2, Y3, IouS,_ = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
+			X2, Y1, Y2, Y3, IouS = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
 
 			if X2 is None:
 				rpn_accuracy_rpn_monitor.append(0)

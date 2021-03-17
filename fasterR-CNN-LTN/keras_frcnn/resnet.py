@@ -313,7 +313,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
 
     
     #axioms
-
+    
     parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
 
 
@@ -374,6 +374,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
 
 
 
+
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
     #out_ltn = keras.layers.Lambda(lambda x: tf.Print(x,[x,x.shape],"ks"))(out_ltn)
@@ -410,7 +411,7 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,activation
     x = Pair(num_rois)(x)
     partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
     out_part_of = partOf(x)
-    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,256)))(out_part_of)
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,1024)))(out_part_of)
 
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)

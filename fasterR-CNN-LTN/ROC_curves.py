@@ -50,7 +50,7 @@ def plot_roc_curve(models,T,P,label,path):
     plt.xlabel('recall')
     plt.ylabel('precision')
     plt.savefig(os.path.join(path,'Precision_Recall_{}.png'.format(i)))
-    #plt.show()
+    plt.show()
 
 
 
@@ -63,6 +63,8 @@ for i in range(25,325,25):
     model_name_k = 'Faster-LTN-knowledge-{}'.format(i)
     models[2] = model_k
     models_name[2] = model_name_k
+
+    print(models)
 
     T = []
     P = []
