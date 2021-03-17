@@ -191,8 +191,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100', by_name=True)
-	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100', by_name=True)
+	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100.hdf5', by_name=True)
+	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100.hdf5', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
