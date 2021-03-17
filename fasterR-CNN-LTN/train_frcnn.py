@@ -264,7 +264,7 @@ for epoch_num in range(107,num_epochs):
 			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7,
 									   max_boxes=300)
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-			X2, Y1, Y2, Y3, IouS = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
+			X2, Y1, Y2, Y3, IouS,_ = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
 
 			if X2 is None:
 				rpn_accuracy_rpn_monitor.append(0)
