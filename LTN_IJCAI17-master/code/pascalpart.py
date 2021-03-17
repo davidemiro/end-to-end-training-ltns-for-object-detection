@@ -22,15 +22,13 @@ types = np.genfromtxt("data/classes.csv", dtype="S", delimiter=",")
 #selected_types = np.array(['aeroplane','artifact_wing','body','engine','stern','wheel','bicycle','chain_wheel','handlebar','headlight','saddle','bus','bodywork','door','license_plate','mirror','window','car','motorbike','train','coach','locomotive','boat'])
 
 # uncomment this line for training the indoor object types
-selected_types = np.array(['bottle','body','cap','pottedplant','plant','pot','tvmonitor','screen','chair','sofa','diningtable'])
+selected_types = np.array(['Person', 'Hand', 'Arm', 'Neck', 'Torso', 'Nose', 'Hair', 'Mouth', 'Ebrow', 'Eye', 'Ear', 'Head', 'Bottle', 'Cap', 'Body', 'Leg', 'Pottedplant', 'Plant', 'Pot', 'Foot', 'Chair', 'Sheep', 'Tail', 'Muzzle', 'Cat', 'Dog', 'Train', 'Locomotive', 'Bicycle', 'Handlebar', 'Chain_Wheel', 'Wheel', 'Motorbike', 'Tvmonitor', 'Screen', 'Horse', 'Hoof', 'Car', 'Window', 'Bodywork', 'Mirror', 'License_plate', 'Door', 'Headlight', 'Saddle', 'Boat', 'Diningtable', 'Coach', 'Aeroplane', 'Stern', 'Sofa', 'Bird', 'Beak', 'Artifact_Wing', 'Engine', 'Bus', 'Animal_Wing', 'Horn', 'Cow'])
 
 # uncomment this line for training the animal object types
 #selected_types = np.array(['person','arm','ear','ebrow','foot','hair','hand','mouth','nose','eye','head','leg','neck','torso','cat','tail','bird','animal_wing','beak','sheep','horn','muzzle','cow','dog','horse','hoof'])
 
 # uncomment this line for training all the object types
-selected_types = types[1:]
-selected_types =[s.decode('UTF-8') for s in selected_types]
-selected_types =[str(s) for s in selected_types]
+
 
 objects = ltn.Domain(number_of_features-1,label="a_bounding_box")
 
@@ -69,9 +67,9 @@ def get_data(train_or_test_swritch,max_rows=10000000):
         data_dir = data_training_dir
     if train_or_test_swritch == "test":
         data_dir = data_testing_dir
-    data = np.genfromtxt(data_dir+"features.csv",delimiter=",",max_rows=max_rows)
-    types_of_data = types[np.genfromtxt(data_dir + "types.csv", dtype="i", max_rows=max_rows)]
-    idx_whole_for_data = np.genfromtxt(data_dir+ "partOf.csv",dtype="i",max_rows=max_rows)
+    data = np.genfromtxt("/Users/davidemiro/Downloads/data_test-2.csv",delimiter=",",max_rows=max_rows)
+    types_of_data = np.genfromtxt("/Users/davidemiro/Downloads/label_test-2.csv", dtype="|U20", max_rows=max_rows)
+    idx_whole_for_data = np.genfromtxt('/Users/davidemiro/Downloads/label_partOf_test-2.csv',dtype="i",max_rows=max_rows)
     idx_of_cleaned_data = np.where(np.logical_and(
         np.all(data[:, -2:] - data[:, -4:-2] >= zero_distance_threshold, axis=1),
         np.in1d(types_of_data,selected_types)))[0]

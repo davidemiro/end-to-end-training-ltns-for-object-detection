@@ -148,7 +148,7 @@ def format_img(img, C):
 
 class_mapping = C.class_mapping
 
-
+inv_map = class_mapping
 
 class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
@@ -181,8 +181,8 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
-model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
-model_classifier.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
+#model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
+#model_classifier.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
 
 
 
@@ -191,6 +191,8 @@ model_classifier.compile(optimizer='sgd', loss='mse')
 
 all_imgs, _, _ = get_data(options.test_path)
 test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+
+
 
 T = {}
 P = {}
@@ -210,6 +212,9 @@ for idx, img_data in enumerate(test_imgs):
     [Y1, Y2, F] = model_rpn.predict(X)
 
     R = roi_helpers.rpn_to_roi(Y1, Y2, C, K.image_dim_ordering(), overlap_thresh=0.7)
+
+
+    _,_,_,Y3,_,det_partof = roi_helpers.calc_iou_partOf(R, img_data, C, inv_map)
 
     # convert from (x1,y1,x2,y2) to (x,y,w,h)
     R[:, 2] -= R[:, 0]
@@ -232,8 +237,47 @@ for idx, img_data in enumerate(test_imgs):
             ROIs_padded[:, :curr_shape[1], :] = ROIs
             ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
             ROIs = ROIs_padded
+            gt_partOf = []
+            dets =[]
+            for i in range(C.num_rois):
+                for j in range(C.num_rois):
+                    if i + jk * C.num_rois >= R.shape[0]:
+                        r = jk * C.num_rois
+                    else:
+                        r = i + jk*C.num_rois
+                    if j + jk * C.num_rois >= R.shape[0]:
+                        c = jk * C.num_rois
+                    else:
+                        c = j + jk*C.num_rois
+                    gt_partOf.append(Y3[r][c])
+                    dets.append(det_partof[r][c])
+        else:
 
-        [P_regr,P_cls] = model_classifier_only.predict([F, ROIs])
+            gt_partOf = []
+            for i in range(C.num_rois):
+                for j in range(C.num_rois):
+                    gt_partOf.append(Y3[i + jk * C.num_rois][j + jk * C.num_rois])
+                    dets.append(det_partof[i + jk * C.num_rois][j + jk * C.num_rois])
+
+
+        [P_regr,P_cls,P_part_of] = model_classifier_only.predict([F, ROIs])
+
+        P_partOf = []
+        T_partOf = []
+        p_partof = {}
+        t_partOf = {}
+        for ii in range(P_part_of.shape[1]):
+
+            P_partOf.append(P_part_of[0,ii])
+            T_partOf.append(gt_partOf[ii])
+
+
+
+
+
+
+
+
 
         for ii in range(P_cls.shape[1]):
 
@@ -272,6 +316,10 @@ for idx, img_data in enumerate(test_imgs):
             det = {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': key, 'prob': new_probs[jk]}
             all_dets.append(det)
 
+    for bb in img_data['bboxes']:
+        if bb['id'] != bb['partOf'] and bb['id']+bb['partOf'] not in det_partof:
+            T_partOf.append(1)
+            P_partOf.append(0)
     print('Elapsed time = {}'.format(time.time() - st))
     t, p = get_map(all_dets, img_data['bboxes'], (fx, fy))
     for key in t.keys():

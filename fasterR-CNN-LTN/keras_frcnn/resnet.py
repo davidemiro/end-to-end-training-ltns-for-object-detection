@@ -320,6 +320,8 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     parts = {}
     wholes = {}
 
+
+
     for k in predictions.keys():
         if k == 'bg':
             continue
@@ -401,9 +403,18 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,activation
     for i in range(nb_classes):
         x = ltn.Predicate(num_features=nb_classes, k=6, i=i)(out_class)
         output.append(x)
+
+        # partOF
+
+    x = bb_creation(nb_classes, num_rois)([out_class, input_rois, base_layers])
+    x = Pair(num_rois)(x)
+    partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
+    out_part_of = partOf(x)
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,256)))(out_part_of)
+
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
 
-    return [out_regr,out_ltn]
+    return [out_regr,out_ltn,out_part_of]
 
 

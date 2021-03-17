@@ -51,6 +51,7 @@ clause_for_positive_examples_of_partOf = [ltn.Clause([ltn.Literal(True, isPartOf
 
 clause_for_negative_examples_of_partOf = [ltn.Clause([ltn.Literal(False, isPartOf, object_pairs_not_in_partOf)], label="examples_of_object_pairs_not_in_part_of_relation", weight=1.0)]
 
+'''
 # defining axioms from the partOf ontology
 
 parts_of_whole, wholes_of_part = get_part_whole_ontology()
@@ -102,7 +103,7 @@ clauses_for_disjoint_types = [ltn.Clause([ltn.Literal(False,isOfType[t],o),
                                           ltn.Literal(False,isOfType[t1],o)],label=t+"_is_not_"+t1) for t in selected_types for t1 in selected_types if t < t1]
 
 clause_for_at_least_one_type = [ltn.Clause([ltn.Literal(True,isOfType[t],o) for t in selected_types], label="an_object_has_at_least_one_type")]
-
+'''
 def add_noise_to_data(noise_ratio):
     if noise_ratio > 0:
         freq_other = {}
@@ -177,7 +178,7 @@ def train(number_of_training_iterations=2500,
               clauses_for_negative_examples_of_types + \
               clause_for_positive_examples_of_partOf + \
               clause_for_negative_examples_of_partOf
-
+    '''
     if with_constraints:
         clauses += partof_is_irreflexive + \
                    partOf_is_antisymmetric + \
@@ -185,7 +186,7 @@ def train(number_of_training_iterations=2500,
                    clauses_for_parts_of_wholes + \
                    clauses_for_disjoint_types + \
                    clause_for_at_least_one_type
-
+    '''
     print('ciao')
     feed_dict = get_feed_dict(idxs_of_noisy_positive_examples_of_types,
                               idxs_of_noisy_negative_examples_of_types,
@@ -194,10 +195,8 @@ def train(number_of_training_iterations=2500,
                               pairs_of_train_data,
                               with_constraints=True)
     # defining the label of the background knowledge
-    if  with_constraints:
-        kb_label = "KB_wc_nr_"+str(noise_ratio)
-    else:
-        kb_label = "KB_nc_nr_"+str(noise_ratio)
+
+    kb_label = "KB_nc_nr_{}_{}".format(ltn.learning_rate,ltn.default_smooth_factor)
 
     # definint the KB
     KB = ltn.KnowledgeBase(kb_label,clauses,"models/")
@@ -271,6 +270,7 @@ def get_feed_dict(idxs_of_pos_ex_of_types,
             pairs_of_train_data[np.random.choice(idxs_of_neg_ex_of_partOf,
                                                  number_of_negative_example_x_partof)]
 
+    '''
     # feed data for axioms
     tmp = pairs_data[np.random.choice(range(pairs_data.shape[0]), number_of_pairs_for_axioms)]
     feed_dict[o.tensor] = tmp[:,:number_of_features - 1]
@@ -300,27 +300,27 @@ def get_feed_dict(idxs_of_pos_ex_of_types,
             feed_dict[w0.tensor],
             feed_dict[p0.tensor],
             feed_dict[p0w0.tensor][:, -1:-3:-1]], axis = 1)
-    for k in feed_dict:
-        print(k.name, feed_dict[k].shape)
+    '''
+
     return feed_dict
 #neptune.init('davidemiro/sandbox', api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiYjI1NGI5OWItYjJjMC00MTY0LThkYTctOTdmMjYyMWZkNDEyIn0=')
-for nr in [0.0, 0.1, 0.2, 0.3, 0.4]:
-    for wc in [False]:
+for lr in [1e-2,1e-3]:
+    for sm in [1e-4,1e-6,1e-8]:
         params ={
             'number_of_training_iterations':1000,
             'frequency_of_feed_dict_generation':100,
-            'with_constraints':wc,
-            'noise_ratio':nr,
+            'with_constraints':False,
+            'noise_ratio':0.0,
             'saturation_limit':.95,
             'data':'official',
             'optimizer':"rmsprop",
-            'learning_rate':0.01,
+            'learning_rate':lr,
             'decay':0.9,
             'default_layers':6,
-            'default_smooth_factor':0.0000001,
+            'default_smooth_factor':sm,
             'default_tnorm':'luk',
             'default_aggregator': "hmean",
-            'default_positive_fact_penality':1e-6,
+            'default_positive_fact_penality':0,
             'default_clauses_aggregator': "hmean",
             
         }
@@ -331,7 +331,8 @@ for nr in [0.0, 0.1, 0.2, 0.3, 0.4]:
         ltn.default_aggregator = params['default_aggregator']
         ltn.default_positive_fact_penality = params['default_positive_fact_penality']
         ltn.default_clauses_aggregator = params['default_clauses_aggregator']
+        ltn.learning_rate = params['learning_rate']
         train(number_of_training_iterations=1000,
               frequency_of_feed_dict_generation=100,
-              with_constraints=True,noise_ratio=nr,
+              with_constraints=True,noise_ratio=0,
               saturation_limit=.95)

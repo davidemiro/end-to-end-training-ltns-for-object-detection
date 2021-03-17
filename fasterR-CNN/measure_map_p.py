@@ -144,7 +144,8 @@ parser.add_option("--config_filename", dest="config_filename", help=
 "Location to read the metadata related to the training (generated when training).",
 				  default="config.pickle")
 parser.add_option("-o", "--parser", dest="parser", help="Parser to use. One of simple or pascal_voc",
-				  default="pascal_voc"),
+				  default="pascal_voc")
+parser.add_option("--name", dest="name", help="Name to give at model")
 
 (options, args) = parser.parse_args()
 
@@ -240,19 +241,21 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
-model_rpn.load_weights('/content/drive/MyDrive/materiale_tesi/comparison_models/model_rpn_original_PASCAL_VOC_8_12.hdf5', by_name=True)
-model_classifier.load_weights('/content/drive/MyDrive/materiale_tesi/comparison_models/model_classifier_PASCAL_VOC_8_12.hdf5', by_name=True)
+model_rpn.load_weights("/content/drive/MyDrive/Tesi_Davide_Miro-main-2/fasterR-CNN/model_rpn_original.hdf5", by_name=True)
+model_classifier.load_weights("/content/drive/MyDrive/Tesi_Davide_Miro-main-2/fasterR-CNN/model_classifier_original.hdf5", by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
 all_imgs, _, _ = get_data(options.test_path)
-test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+test_imgs = [s for s in all_imgs if s['imageset'] == options.name]
+#test_imgs = [test_imgs[i] for i in range(len(test_imgs)) if i < 5]
 
 data = []
 label_data = []
 label_pair = []
 count = 0
+c = 0
 for idx, img_data in enumerate(test_imgs):
 	print('{}/{}'.format(idx, len(test_imgs)))
 	st = time.time()
@@ -276,7 +279,7 @@ for idx, img_data in enumerate(test_imgs):
 
 	# apply the spatial pyramid pooling to the proposed regions
 	bboxes = {}
-
+	lboxes = []
 	for jk in range(R.shape[0] // C.num_rois + 1):
 		ROIs = np.expand_dims(R[C.num_rois * jk:C.num_rois * (jk + 1), :], axis=0)
 		if ROIs.shape[1] == 0:
@@ -325,36 +328,34 @@ for idx, img_data in enumerate(test_imgs):
 				iou = data_generators.iou((pred_x1, pred_y1, pred_x2, pred_y2), (gt_x1, gt_y1, gt_x2, gt_y2))
 
 				if iou > 0.5:
-					#se ci sono conflitti tra oggetti, associo alla predizione il gt con la più alta iou
-					if (gt_box['id'] not in bboxes) or (gt_box['id'] in bboxes and bboxes[gt_box['id']]['iou'] < iou):
-						box = {}
-						#x1,y1,x2,y2
-						b = np.concatenate((P_cls[0, ii, :], np.array([pred_x1, pred_y1, pred_x2, pred_y2])))
-						box['feature'] = b
-						box['label'] = gt_box['class']
-						box['iou'] = iou
-						box['partOf'] = gt_box['partOf']
-						if gt_box['id'] not in bboxes:
-							count += 1
-							box['count'] = count
-						else:
-							box['count'] = bboxes[gt_box['id']]['count']
-						bboxes[gt_box['id']] = box
 
-	for k,v in bboxes.items():
-		data.append(np.concatenate((np.array([count]),v['feature'])))
+					b = np.concatenate((np.array([c]),P_cls[0, ii, :], np.array([pred_x1, pred_y1, pred_x2, pred_y2])))
+
+					box = {}
+					box['feature'] = b
+					box['label'] = gt_box['class']
+					box['partOf'] = gt_box['partOf']
+					box['id'] = gt_box['id']
+					box['count'] = count
+					count+=1
+					bboxes[gt_box['id']] = box
+					lboxes.append(box)
+
+
+	for v in lboxes:
+		data.append(v['feature'])
 		label_data.append(v['label'])
-		if k != v['partOf'] and v['partOf'] in bboxes:
+		if v['id'] != v['partOf'] and v['partOf'] in bboxes:
 			label_pair.append(bboxes[v['partOf']]['count'])
 		else:
 			label_pair.append(-1)
-
+	c += 1
 
 
 data = np.array(data)
 label_data = np.array(label_data)
 label_pair = np.array(label_pair)
-np.savetxt('label_partOf.csv',label_pair)
-np.savetxt('data.csv',data)
-np.savetxt('label.csv',label_data,fmt='%s')
 
+np.savetxt('label_partOf_{}.csv'.format(options.name),label_pair,fmt='%d',delimiter=',')
+np.savetxt('data_{}.csv'.format(options.name),data,fmt='%10.15f',delimiter=',')
+np.savetxt('label_{}.csv'.format(options.name),label_data,fmt='%s',delimiter=',')

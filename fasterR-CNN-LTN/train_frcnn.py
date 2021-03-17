@@ -191,8 +191,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100', by_name=True)
+	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_100', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -225,14 +225,13 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = np.Inf
+best_loss = 13.967824795
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-cycle = 0
-for epoch_num in range(num_epochs):
+for epoch_num in range(107,num_epochs):
 
 
 
@@ -385,7 +384,6 @@ for epoch_num in range(num_epochs):
 				start_time = time.time()
 
 				if epoch_num % 25 == 0:
-					cycle = epoch_num
 					model_all.save_weights("model_{}_{}.hdf5".format(options.name, epoch_num))
 
 				if curr_loss < best_loss:
@@ -393,9 +391,9 @@ for epoch_num in range(num_epochs):
 						print('Total loss decreased from {} to {}, saving weights'.format(best_loss, curr_loss))
 					best_loss = curr_loss
 					log_file_save = open('save_{}.txt'.format(options.name), 'a')
-					log_file_save.write('Check point epoch {}'.format(epoch_num))
+					log_file_save.write('Check point epoch {} {}'.format(epoch_num,best_loss))
 					log_file_save.close()
-					model_all.save_weights("model_{}_best_{}.hdf5".format(options.name,cycle))
+					model_all.save_weights("model_{}_best_{}.hdf5".format(options.name,epoch_num))
 				break
 
 		except Exception as e:

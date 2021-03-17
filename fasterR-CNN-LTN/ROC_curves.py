@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.metrics import roc_curve,auc,precision_recall_curve
 import matplotlib.pyplot as plt
 from sklearn.metrics import average_precision_score
+import os,shutil
 
 
 
@@ -12,11 +13,13 @@ models_name =['FRCNN','Arch13 (focal loss)','Arch14 (focal loss con alpha)','Arc
 
 #models = ['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha_prof','focal_logsum_bg_no_alpha','focal_logsum_bg_alpha']
 #models_name =['FasterRCNN','FasterRCNN-LTN','FasterRCNN-LTN with alpha','FasterRCNN-LTN with bg','FasterRCNN-LTN with alpha and bg']
-models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9a']
-models_name =['FasterRCNN','FasterRCNN-LTN']
+models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9','']
+models_name =['FasterRCNN','Faster-LTN','']
+
+
 def loadTP(name):
-    T_file = open('/Users/davidemiro/Downloads/T_{}.pkl'.format(name),'rb')
-    P_file = open('/Users/davidemiro/Downloads/P_{}.pkl'.format(name),'rb')
+    T_file = open('/Users/davidemiro/Desktop/measures/T_{}.pkl'.format(name),'rb')
+    P_file = open('/Users/davidemiro/Desktop/measures/P_{}.pkl'.format(name),'rb')
 
     T = pickle.load(T_file)
     P =pickle.load(P_file)
@@ -24,7 +27,7 @@ def loadTP(name):
 
 
 
-def plot_roc_curve(models,T,P,label):
+def plot_roc_curve(models,T,P,label,path):
 
 
 
@@ -46,33 +49,48 @@ def plot_roc_curve(models,T,P,label):
     plt.legend(loc = 0)
     plt.xlabel('recall')
     plt.ylabel('precision')
-    plt.savefig('/Users/davidemiro/Desktop/Precision_Recall_partsa.png')
-    plt.show()
+    plt.savefig(os.path.join(path,'Precision_Recall_{}.png'.format(i)))
+    #plt.show()
 
 
 
 
 
 
+for i in range(25,325,25):
 
-T = []
-P = []
+    model_k = 'model_focal_logsum_bg_PASCAL_parts_knowledge_{}.hdf5'.format(i)
+    model_name_k = 'Faster-LTN-knowledge-{}'.format(i)
+    models[2] = model_k
+    models_name[2] = model_name_k
 
-for m in models:
-    t,p = loadTP(m)
-    print(m)
-    print('\n')
-    all_aps = []
-    for key in t.keys():
-        ap = average_precision_score(t[key], p[key])
-        print('{} AP: {}'.format(key, ap))
-        all_aps.append(ap)
-    print('mAP = {}'.format(np.mean(np.array(all_aps))))
-    T.append(t)
-    P.append(p)
+    T = []
+    P = []
 
-labels =list(P[0].keys())
+    for m in models:
+        t, p = loadTP(m)
+        print(m)
+        print('\n')
+        all_aps = []
+        try:
+            os.mkdir('/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}'.format(i))
+        except:
+            print('exist')
 
-plot_roc_curve(models_name,T,P,labels)
+        f = open('/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}/mAPs.txt'.format(i),'w')
+
+        for key in sorted(list(t.keys())):
+            ap = average_precision_score(t[key], p[key])
+            f.write('{} AP: {}\n'.format(key, ap))
+            all_aps.append(ap)
+        f.write('mAP = {}\n'.format(np.mean(np.array(all_aps))))
+        f.close()
+        T.append(t)
+        P.append(p)
+
+    labels = list(P[0].keys())
+
+    plot_roc_curve(models_name, T, P, labels,'/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}'.format(i))
+
 
 

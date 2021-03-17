@@ -4,22 +4,23 @@ import numpy as np
 import pdb
 
 default_layers = 10
-default_smooth_factor = 0.0000001
+default_smooth_factor = 1e-8
 default_tnorm = "product"
 default_optimizer = "gd"
 default_aggregator = "min"
-default_positive_fact_penality = 1e-6
+default_positive_fact_penality = 0
 default_clauses_aggregator = "min"
+learning_rate=1e-3
 
 def train_op(loss, optimization_algorithm):
     if optimization_algorithm == "ftrl":
-        optimizer = tf.train.FtrlOptimizer(learning_rate=0.01,learning_rate_power=-0.5)
+        optimizer = tf.train.FtrlOptimizer(learning_rate=learning_rate,learning_rate_power=-0.5)
     if optimization_algorithm == "gd":
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.05)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
     if optimization_algorithm == "ada":
-        optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
+        optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate)
     if optimization_algorithm == "rmsprop":
-        optimizer = tf.train.RMSPropOptimizer(learning_rate=0.01,decay=0.9)
+        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate,decay=0.9)
     return optimizer.minimize(loss)
 
 def PR(tensor):
@@ -53,9 +54,9 @@ def disjunction_of_literals(literals,label="no_label"):
         return tf.reduce_min(result, keep_dims=True,name=label)
 
 def smooth(parameters):
-    norm_of_omega = tf.reduce_sum(tf.expand_dims(tf.concat(0,
-                     [tf.expand_dims(tf.reduce_sum(tf.square(par)),0) for par in parameters]),1))
-    return tf.mul(default_smooth_factor,norm_of_omega)
+    norm_of_omega = tf.reduce_sum(tf.expand_dims(tf.concat(
+                     [tf.expand_dims(tf.reduce_sum(tf.square(par)),0) for par in parameters],0),1))
+    return tf.multiply(default_smooth_factor,norm_of_omega)
 
 class Domain:
     def __init__(self,columns, dom_type="float",label=None):
@@ -182,7 +183,7 @@ class KnowledgeBase:
                 self.tensor = tf.div(tf.reduce_sum(tf.mul(weights_tensor, clauses_value_tensor)),tf.reduce_sum(weights_tensor))
         if default_positive_fact_penality != 0:
             self.loss = smooth(self.parameters) + \
-                        tf.mul(default_positive_fact_penality,self.penalize_positive_facts()) - \
+                        tf.multiply(default_positive_fact_penality,self.penalize_positive_facts()) - \
                         PR(self.tensor)
         else:
             self.loss = smooth(self.parameters) - PR(self.tensor)

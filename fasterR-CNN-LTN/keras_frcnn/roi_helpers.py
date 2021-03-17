@@ -44,7 +44,11 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 				best_bbox = bbox_num
 
 		if best_iou < C.classifier_min_overlap:
-				continue
+			p = {}
+			p['id'] = 'bg_'+str(ix)
+			p['partOf'] = 'bg_'+str(ix)
+			partsOf.append(p)
+			continue
 		else:
 			w = x2 - x1
 			h = y2 - y1
@@ -103,19 +107,24 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 	Y1 = np.array(y_class_num)
 	Y2 = np.concatenate([np.array(y_class_regr_label),np.array(y_class_regr_coords)],axis=1)
 	y_partOf = []
+	gt_partOf =[]
 
 	for i in partsOf:
 		r = []
+		r_g = []
 		for j in partsOf:
 			if i['partOf'] == j['id'] and i['id'] != j['id']:
+				r_g.append(i['id']+j['id'])
 				r.append(1)
 			else:
 				r.append(0)
+				r_g.append('-')
 		y_partOf.append(r)
+		gt_partOf.append(r_g)
 
 
 
-	return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0),y_partOf, IoUs
+	return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0),y_partOf, IoUs,gt_partOf
 def calc_iou(R, img_data, C, class_mapping):
 
 	bboxes = img_data['bboxes']
