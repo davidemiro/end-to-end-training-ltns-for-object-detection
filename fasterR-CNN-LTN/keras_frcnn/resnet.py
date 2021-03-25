@@ -264,6 +264,11 @@ def get_wholes(batch,batch_size):
     o = tf.expand_dims(o, axis=1)
     return o
 
+import sys
+
+def print_t(x,m):
+    tf.print(m, x, summarize=200000000)
+    return x
 
 def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator,activation,gamma,Y,Y_partOf=None,classes=None,std_x=None, std_y=None, std_w=None, std_h=None):
 
@@ -306,18 +311,25 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     x = Pair(num_rois)(x)
     partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
     partOf_prediction = partOf(x)
+    partOf_prediction = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Predicitions',summarize=20000000))(partOf_prediction)
+    Y_partOf = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Y_partOf',summarize=20000000))(Y_partOf)
     x = Literal(name='partOf_literal', batch_size=num_rois//2 * num_rois//2)([partOf_prediction, Y_partOf])
     x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='partOf')(x)
+
     output.append(x)
 
+    '''
 
-    
+
+
     #axioms
     
     parts_of_whole, wholes_of_part = get_part_whole_ontology(classes[:-1])
 
     parts = {}
     wholes = {}
+    
+    
 
 
 
@@ -369,6 +381,8 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
         at_least_literals.append(l)
     x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma,name = 'at_least_one_class')(at_least_literals)
     output.append(x)
+    '''
+
 
 
 
@@ -405,16 +419,42 @@ def classifierEvaluate(base_layers, input_rois, num_rois, nb_classes ,activation
         output.append(x)
 
         # partOF
+    '''
 
     x = bb_creation(nb_classes, num_rois)([out_class, input_rois, base_layers])
     x = Pair(num_rois)(x)
     partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
     out_part_of = partOf(x)
-    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,1024)))(out_part_of)
-
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,num_rois*num_rois)))(out_part_of)
+    '''
     out_ltn = keras.layers.Concatenate(axis=1)(output)
     out_ltn = keras.layers.Lambda(lambda x: keras.backend.expand_dims(x, 0))(out_ltn)
 
-    return [out_regr,out_ltn,out_part_of]
+
+    return [out_regr,out_ltn]
+
+def classifierPartOF(base_layers, input_rois, num_rois, nb_classes ,activation,trainable=False):
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+
+    out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
+
+    return out_regr,out_class
+
+def partOf(input_part,nb_classes,num_rois):
+    out_part_of = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)(input_part)
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of, (1, num_rois * num_rois)))(out_part_of)
+    return out_part_of
 
 

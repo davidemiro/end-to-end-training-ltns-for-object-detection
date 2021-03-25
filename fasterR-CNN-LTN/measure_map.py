@@ -13,7 +13,36 @@ from keras_frcnn import roi_helpers
 from keras_frcnn import data_generators
 from sklearn.metrics import average_precision_score
 
+def containment_ratios_between_two_bbxes(bb1, bb2):
+    bb1_area = (bb1[-2] - bb1[-4]) * (bb1[-1] - bb1[-3])
+    bb2_area = (bb2[-2] - bb2[-4]) * (bb2[-1] - bb2[-3])
+    w_intersec = np.maximum(0.0,np.minimum(bb1[-2], bb2[-2]) - np.maximum(bb1[-4], bb2[-4]))
+    h_intersec = np.maximum(0.0,np.minimum(bb1[-1], bb2[-1]) - np.maximum(bb1[-3], bb2[-3]))
+    bb_area_intersection = w_intersec * h_intersec
+    return [bb_area_intersection/bb1_area, bb_area_intersection/bb2_area]
+def bb_creation(out_class,rois,b,num_rois):
 
+
+    # Richiedo come input la feature map per poter ottener la lunghezza e la larghezza di questa e normalizzare (x1,x2,y1,y2) per avere un input conforme con quello richiesto dalla LTN
+    if K.image_dim_ordering() == 'th':
+        H = float(np.shape(b)[2])
+        W = float(np.shape(b)[3])
+    else:
+        H = float(np.shape(b)[2])
+        W = float(np.shape(b)[3])
+    p = []
+    for roi_idx in range(num_rois):
+        x = rois[0, roi_idx, 0]
+        y = rois[0, roi_idx, 1]
+        w = rois[0, roi_idx, 2]
+        h = rois[0, roi_idx, 3]
+        re = np.stack([x / W, y / H, (x + w) / W, (y + h) / H])
+
+        re = np.expand_dims(re, axis=0)
+        p.append(np.concatenate((out_class[:, roi_idx, :], re), 1))
+    h = np.concatenate(p, axis=0)
+    h = np.expand_dims(h, axis=0)
+    return h
 def get_map(pred, gt, f):
     T = {}
     P = {}
@@ -99,8 +128,8 @@ elif options.parser == 'simple':
     from keras_frcnn.simple_parser import get_data
 else:
     raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
+#config_output_filename = '/content/drive/MyDrive/Tesi_Davide_Miro-main/fasterR-CNN-LTN/config_focal_logsum_bg_PASCAL_parts_knowledge_partOf.pickle'
 config_output_filename = 'config_'+options.name+'.pickle'
-
 with open(config_output_filename, 'rb') as f_in:
     C = pickle.load(f_in)
 # turn off any data augmentation at test time
@@ -150,6 +179,8 @@ class_mapping = C.class_mapping
 
 inv_map = class_mapping
 
+
+
 class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
@@ -168,22 +199,26 @@ feature_map_input = Input(shape=input_shape_features)
 
 # define the base network (resnet here, can be VGG, Inception, etc)
 shared_layers = nn.nn_base(img_input, trainable=True)
-
+input_partOf = Input(shape=(90000, 130))
 # define the RPN, built on the base layers
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-
+roi_input_p = Input(shape=(300, 4))
 classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'linear',trainable=True)
-
+classifier_partOf = nn.classifierPartOF(feature_map_input, roi_input_p, 300, len(class_mapping),'linear',trainable=True)
+part_Of_classifier = nn.partOf(input_partOf,60,300)
 model_rpn = Model(img_input, rpn_layers)
 model_classifier_only = Model([feature_map_input, roi_input], classifier)
 
 model_classifier = Model([feature_map_input, roi_input], classifier)
+model_classifier_partOf = Model([feature_map_input, roi_input_p], classifier_partOf)
+model_partOf = Model([input_partOf],part_Of_classifier)
 
-#model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
-#model_classifier.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
-
+model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name), by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
+model_classifier_partOf.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
+model_partOf.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
 
 
 model_rpn.compile(optimizer='sgd', loss='mse')
@@ -192,10 +227,10 @@ model_classifier.compile(optimizer='sgd', loss='mse')
 all_imgs, _, _ = get_data(options.test_path)
 test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
 
-
-
 T = {}
 P = {}
+T_partof = []
+P_partof = []
 for idx, img_data in enumerate(test_imgs):
     print('{}/{}'.format(idx, len(test_imgs)))
     st = time.time()
@@ -211,10 +246,15 @@ for idx, img_data in enumerate(test_imgs):
     # get the feature maps and output from the RPN
     [Y1, Y2, F] = model_rpn.predict(X)
 
+
     R = roi_helpers.rpn_to_roi(Y1, Y2, C, K.image_dim_ordering(), overlap_thresh=0.7)
+    ids = [i for i in range(R.shape[0])]
+    o1_o2_p = []
 
+    Y3, detected_part_of = roi_helpers.calc_iou_partOf_test(R, img_data, C, inv_map)
 
-    _,_,_,Y3,_,det_partof = roi_helpers.calc_iou_partOf(R, img_data, C, inv_map)
+    if Y3 == None:
+        continue
 
     # convert from (x1,y1,x2,y2) to (x,y,w,h)
     R[:, 2] -= R[:, 0]
@@ -223,13 +263,14 @@ for idx, img_data in enumerate(test_imgs):
     # apply the spatial pyramid pooling to the proposed regions
     bboxes = {}
     probs = {}
+    sel_rois = {}
+    sels_m = set()
 
     for jk in range(R.shape[0] // C.num_rois + 1):
         ROIs = np.expand_dims(R[C.num_rois * jk:C.num_rois * (jk + 1), :], axis=0)
+        rois_ids = ids[C.num_rois * jk:C.num_rois * (jk + 1)]
         if ROIs.shape[1] == 0:
             break
-        gt_partOf = []
-        dets = []
         if jk == R.shape[0] // C.num_rois:
             # pad R
             curr_shape = ROIs.shape
@@ -238,40 +279,9 @@ for idx, img_data in enumerate(test_imgs):
             ROIs_padded[:, :curr_shape[1], :] = ROIs
             ROIs_padded[0, curr_shape[1]:, :] = ROIs[0, 0, :]
             ROIs = ROIs_padded
+            rois_ids[curr_shape[1]:C.num_rois] = [rois_ids[0] for _ in range(C.num_rois - curr_shape[1])]
 
-            for i in range(C.num_rois):
-                for j in range(C.num_rois):
-                    if i + jk * C.num_rois >= R.shape[0]:
-                        r = jk * C.num_rois
-                    else:
-                        r = i + jk*C.num_rois
-                    if j + jk * C.num_rois >= R.shape[0]:
-                        c = jk * C.num_rois
-                    else:
-                        c = j + jk*C.num_rois
-                    gt_partOf.append(Y3[r][c])
-                    dets.append(det_partof[r][c])
-        else:
-
-            gt_partOf = []
-            for i in range(C.num_rois):
-                for j in range(C.num_rois):
-                    gt_partOf.append(Y3[i + jk * C.num_rois][j + jk * C.num_rois])
-                    dets.append(det_partof[i + jk * C.num_rois][j + jk * C.num_rois])
-
-
-        [P_regr,P_cls,P_part_of] = model_classifier_only.predict([F, ROIs])
-
-        P_partOf = []
-        T_partOf = []
-        p_partof = {}
-
-        for ii in range(P_part_of.shape[1]):
-
-
-
-            P_partOf.append(P_part_of[0,ii])
-            T_partOf.append(gt_partOf[ii])
+        [P_regr,P_cls] = model_classifier_only.predict([F, ROIs])
 
         for ii in range(P_cls.shape[1]):
 
@@ -283,6 +293,7 @@ for idx, img_data in enumerate(test_imgs):
             if cls_name not in bboxes:
                 bboxes[cls_name] = []
                 probs[cls_name] = []
+                sel_rois[cls_name] = []
 
             (x, y, w, h) = ROIs[0, ii, :]
 
@@ -298,22 +309,68 @@ for idx, img_data in enumerate(test_imgs):
                 pass
             bboxes[cls_name].append([16 * x, 16 * y, 16 * (x + w), 16 * (y + h)])
             probs[cls_name].append(np.max(P_cls[0, ii, :]))
+            sel_rois[cls_name].append(rois_ids[ii])
+
+    ROIs = np.expand_dims(R, axis=0)
+    _,out_class = model_classifier_partOf.predict([F, ROIs])
+
+    inputs = bb_creation(out_class,ROIs,F,300)
+
+    inputs_part_of = []
+    for i in range(300):
+        for j in range(300):
+            cts = containment_ratios_between_two_bbxes(inputs[0, i, :], inputs[0, j, :])
+            x = np.concatenate([inputs[0, i, :], inputs[0, j, :], cts], axis=0)
+            x = np.expand_dims(np.expand_dims(x, axis=0), axis=0)
+            inputs_part_of.append(x)
+    inputs_part_of = np.concatenate(inputs_part_of, axis=1)
+
+    out_part_of = model_partOf.predict([inputs_part_of])
+
+    ii = 0
+    for i in range(300):
+        for j in range(300):
+            o1_o2_p.append((i,j,out_part_of[0,ii],Y3[i][j]))
+            ii += 1
+
+
 
     all_dets = []
+    dets_rois = set()
 
     for key in bboxes:
         bbox = np.array(bboxes[key])
 
-        new_boxes, new_probs = roi_helpers.non_max_suppression_fast(bbox, np.array(probs[key]), overlap_thresh=0.5)
+        new_boxes, new_probs, new_sel_rois = roi_helpers.non_max_suppression_fast_partOf(bbox, np.array(probs[key]),np.array(sel_rois[key]), overlap_thresh=0.5)
         for jk in range(new_boxes.shape[0]):
             (x1, y1, x2, y2) = new_boxes[jk, :]
             det = {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': key, 'prob': new_probs[jk]}
             all_dets.append(det)
+            dets_rois.add(new_sel_rois[jk])
 
-    for bb in img_data['bboxes']:
-        if bb['id'] != bb['partOf'] and bb['id']+bb['partOf'] not in det_partof:
-            T_partOf.append(1)
-            P_partOf.append(0)
+    t_part_of = []
+    p_part_of = []
+
+    for c in o1_o2_p:
+        if c[0] in dets_rois and c[1] in dets_rois:
+            t_part_of.append(c[3])
+            p_part_of.append(c[2])
+    '''
+    for b in img_data['bboxes']:
+        if b['partOf'] != b['id']:
+            if '{}{}'.format(b['id'], b['partOf']) not in detected_part_of:
+                t_part_of.append(1)
+                p_part_of.append(0)
+    '''
+
+    T_partof.extend(t_part_of)
+    P_partof.extend(p_part_of)
+
+    print('Elapsed time = {}'.format(time.time() - st))
+
+    ap = average_precision_score(T_partof, P_partof)
+    print('PartOf AP: {}'.format(ap))
+
     print('Elapsed time = {}'.format(time.time() - st))
     t, p = get_map(all_dets, img_data['bboxes'], (fx, fy))
     for key in t.keys():
@@ -328,6 +385,8 @@ for idx, img_data in enumerate(test_imgs):
         print('{} AP: {}'.format(key, ap))
         all_aps.append(ap)
     print('mAP = {}'.format(np.mean(np.array(all_aps))))
+T['partOf'] = T_partof
+P['partOf'] = P_partof
 with open('T_' + options.name + '.pkl', 'wb') as f:
     pickle.dump(T, f)
 with open('P_' + options.name + '.pkl', 'wb') as f:

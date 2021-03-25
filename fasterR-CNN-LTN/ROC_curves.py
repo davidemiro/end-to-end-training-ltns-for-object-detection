@@ -13,7 +13,7 @@ models_name =['FRCNN','Arch13 (focal loss)','Arch14 (focal loss con alpha)','Arc
 
 #models = ['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha_prof','focal_logsum_bg_no_alpha','focal_logsum_bg_alpha']
 #models_name =['FasterRCNN','FasterRCNN-LTN','FasterRCNN-LTN with alpha','FasterRCNN-LTN with bg','FasterRCNN-LTN with alpha and bg']
-models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9','']
+models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9','model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5']
 models_name =['FasterRCNN','Faster-LTN','']
 
 
@@ -49,7 +49,7 @@ def plot_roc_curve(models,T,P,label,path):
     plt.legend(loc = 0)
     plt.xlabel('recall')
     plt.ylabel('precision')
-    plt.savefig(os.path.join(path,'Precision_Recall_{}.png'.format(i)))
+    #plt.savefig(os.path.join(path,'Precision_Recall_{}.png'.format(i)))
     plt.show()
 
 
@@ -57,42 +57,28 @@ def plot_roc_curve(models,T,P,label,path):
 
 
 
-for i in range(25,325,25):
 
-    model_k = 'model_focal_logsum_bg_PASCAL_parts_knowledge_{}.hdf5'.format(i)
-    model_name_k = 'Faster-LTN-knowledge-{}'.format(i)
-    models[2] = model_k
-    models_name[2] = model_name_k
 
-    print(models)
 
-    T = []
-    P = []
 
-    for m in models:
-        t, p = loadTP(m)
-        print(m)
-        print('\n')
-        all_aps = []
-        try:
-            os.mkdir('/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}'.format(i))
-        except:
-            print('exist')
 
-        f = open('/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}/mAPs.txt'.format(i),'w')
+T = []
+P = []
 
-        for key in sorted(list(t.keys())):
-            ap = average_precision_score(t[key], p[key])
-            f.write('{} AP: {}\n'.format(key, ap))
-            all_aps.append(ap)
-        f.write('mAP = {}\n'.format(np.mean(np.array(all_aps))))
-        f.close()
-        T.append(t)
-        P.append(p)
+for m in models:
+    t, p = loadTP(m)
+    print(m)
+    print('\n')
+    all_aps = []
 
-    labels = list(P[0].keys())
 
-    plot_roc_curve(models_name, T, P, labels,'/Users/davidemiro/Desktop/measures/Faster-LTN-knowledge-{}'.format(i))
+    T.append(t)
+    P.append(p)
+
+labels = list(P[0].keys())
+
+plot_roc_curve(models_name, T, P, labels,'/Users/davidemiro/Desktop/measures')
+
 
 
 

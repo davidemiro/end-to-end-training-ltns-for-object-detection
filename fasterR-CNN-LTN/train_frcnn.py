@@ -191,8 +191,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_115.hdf5', by_name=True)
-	model_classifier.load_weights('model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_115.hdf5', by_name=True)
+	model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5', by_name=True)
+	model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -214,7 +214,7 @@ model_classifier.compile(optimizer=optimizer_classifier,
 model_all.compile(optimizer='sgd', loss='mae')
 
 epoch_length = 1000
-num_epochs = 1000
+num_epochs = 300
 iter_num = 0
 
 
@@ -225,13 +225,13 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 12.1460377394
+best_loss = 9.82586775628
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-for epoch_num in range(115,num_epochs):
+for epoch_num in range(294,num_epochs):
 
 
 

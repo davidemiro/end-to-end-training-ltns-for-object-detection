@@ -151,6 +151,8 @@ def apply_regr_np(X, T):
 		print(e)
 		return X
 
+
+
 def non_max_suppression_fast(boxes, probs, overlap_thresh=0.9, max_boxes=300):
 	# code used from here: http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
 	# if there are no boxes, return an empty list
