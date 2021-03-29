@@ -450,7 +450,17 @@ def classifierPartOF(base_layers, input_rois, num_rois, nb_classes ,activation,t
     # note: no regression target for bg class
     out_regr = TimeDistributed(Dense(4 * (nb_classes-1), activation='linear', kernel_initializer='zero'), name='dense_regress_{}'.format(nb_classes))(out)
 
-    return out_regr,out_class
+
+
+
+    # predicate Dog -> partOf
+    # predicate Cat ->
+    # ir1
+    # predicate Dog ->
+    # predicate Cat ->
+    # ir2 ->
+
+    return [out_regr,out_class]
 
 def partOf(input_part,nb_classes,num_rois):
     out_part_of = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)(input_part)
@@ -458,3 +468,68 @@ def partOf(input_part,nb_classes,num_rois):
     return out_part_of
 
 
+def prova(base_layers, input_rois, num_rois, nb_classes ,activation,trainable=False):
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois, 14, 14, 1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois, 1024, 7, 7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+
+    out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'),
+                                name='dense_class_{}'.format(nb_classes))(out)
+    # note: no regression target for bg class
+    out_regr = TimeDistributed(Dense(4 * (nb_classes - 1), activation='linear', kernel_initializer='zero'),
+                               name='dense_regress_{}'.format(nb_classes))(out)
+    output = []
+    predictions = {}
+
+    # partOF
+
+    y = bb_creation(nb_classes, num_rois)([out_class, input_rois, base_layers])
+    x = Pair(num_rois)(y)
+    out_part_of = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)(x)
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of, (1, num_rois//2 * num_rois//2)))(out_part_of)
+
+    return [x,y,out_part_of]
+
+
+def classifierEvaluatePartOF(base_layers, input_rois, num_rois, nb_classes ,activation,trainable=False):
+
+    # compile times on theano tend to be very high, so we use smaller ROI pooling regions to workaround
+
+    if K.backend() == 'tensorflow':
+        pooling_regions = 14
+        input_shape = (num_rois,14,14,1024)
+    elif K.backend() == 'theano':
+        pooling_regions = 7
+        input_shape = (num_rois,1024,7,7)
+
+    out_roi_pool = RoiPoolingConv(pooling_regions, num_rois)([base_layers, input_rois])
+    out = classifier_layers(out_roi_pool, input_shape=input_shape, trainable=True)
+
+    out = TimeDistributed(Flatten())(out)
+
+    out_class = TimeDistributed(Dense(nb_classes, activation=activation, kernel_initializer='zero'), name='dense_class_{}'.format(nb_classes))(out)
+
+
+
+    # partOF
+
+
+    x = bb_creation(nb_classes, num_rois)([out_class, input_rois, base_layers])
+    x = Pair(num_rois)(x)
+    partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
+    out_part_of = partOf(x)
+    out_part_of = keras.layers.Lambda(lambda x: keras.backend.reshape(out_part_of,(1,num_rois*num_rois)))(out_part_of)
+
+
+
+    return [out_part_of]

@@ -13,8 +13,8 @@ models_name =['FRCNN','Arch13 (focal loss)','Arch14 (focal loss con alpha)','Arc
 
 #models = ['PASCAL','focal_logsum_neptune-2','focal_logsum_neptune_alpha_prof','focal_logsum_bg_no_alpha','focal_logsum_bg_alpha']
 #models_name =['FasterRCNN','FasterRCNN-LTN','FasterRCNN-LTN with alpha','FasterRCNN-LTN with bg','FasterRCNN-LTN with alpha and bg']
-models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9','model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5']
-models_name =['FasterRCNN','Faster-LTN','']
+models = ['parts','focal_logsum_bg_no_alpha_PASCAL_parts_9','model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5','model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5']
+models_name =['FasterRCNN','Faster-LTN','Faster-LTN knowledge','Faster-LTN knowledge partOf']
 
 
 def loadTP(name):
@@ -37,11 +37,14 @@ def plot_roc_curve(models,T,P,label,path):
     for string,t,p in zip(models,T,P):
         y_test = []
         y_score = []
+        aps = []
         for l in label:
             y_test = y_test + t[l]
             y_score = y_score + p[l]
+            aps.append(average_precision_score(t[l], p[l]))
         p,r,th = precision_recall_curve(y_test, y_score)
-        AP = average_precision_score(y_test, y_score)
+        AP = np.mean(aps)
+
         plt.plot(r,p, label="{}, mAP={}".format(string,str(AP)))
 
 
@@ -50,7 +53,6 @@ def plot_roc_curve(models,T,P,label,path):
     plt.xlabel('recall')
     plt.ylabel('precision')
     #plt.savefig(os.path.join(path,'Precision_Recall_{}.png'.format(i)))
-    plt.show()
 
 
 
@@ -62,23 +64,20 @@ def plot_roc_curve(models,T,P,label,path):
 
 
 
+
+
+T, P = loadTP('parts')
+
+labels = list(T.keys())
 T = []
 P = []
-
 for m in models:
     t, p = loadTP(m)
-    print(m)
-    print('\n')
-    all_aps = []
-
-
     T.append(t)
     P.append(p)
 
-labels = list(P[0].keys())
-
 plot_roc_curve(models_name, T, P, labels,'/Users/davidemiro/Desktop/measures')
-
+plt.show()
 
 
 

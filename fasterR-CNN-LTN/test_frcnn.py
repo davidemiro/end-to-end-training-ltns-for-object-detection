@@ -38,7 +38,7 @@ elif options.parser == 'simple':
 else:
     raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
-config_output_filename = '/Users/davidemiro/Desktop/config_focal_logsum_pos_weights_parts.pickle'
+config_output_filename = '/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/config_focal_logsum_bg_PASCAL_parts_knowledge_partOf.pickle'
 
 
 with open(config_output_filename, 'rb') as f_in:
@@ -141,7 +141,7 @@ shared_layers = nn.nn_base(img_input, trainable=True)
 num_anchors = len(C.anchor_box_scales) * len(C.anchor_box_ratios)
 rpn_layers = nn.rpn(shared_layers, num_anchors)
 
-classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'linear', C.classifier_regr_std[0], C.classifier_regr_std[1], C.classifier_regr_std[2], C.classifier_regr_std[3],trainable=True)
+classifier = nn.classifierEvaluate(feature_map_input, roi_input, C.num_rois, len(class_mapping),'linear',trainable=True)
 
 model_rpn = Model(img_input, rpn_layers)
 model_classifier_only = Model([feature_map_input, roi_input], classifier)
@@ -149,8 +149,8 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
-model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_focal_logsum_pos_weights_parts.hdf5', by_name=True)
-model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_focal_logsum_pos_weights_parts.hdf5', by_name=True)
+model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5', by_name=True)
 
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
@@ -195,7 +195,7 @@ for idx, img_data in enumerate(test_imgs):
 					  (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
 		cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
 
-	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}_gt.png'.format(img_name), img)
+	cv2.imwrite('/Users/davidemiro/Desktop/bb_k_p/{}_gt.png'.format(img_name), img)
 
 	img = cv2.imread(filepath)
 
@@ -235,7 +235,7 @@ for idx, img_data in enumerate(test_imgs):
 
 		for ii in range(P_cls.shape[1]):
 
-			if np.max(P_cls[0, ii, :]) < bbox_threshold:
+			if np.max(P_cls[0, ii, :]) < bbox_threshold or np.argmax(P_cls[0, ii, :]) == 59:
 				continue
 
 			cls_name = class_mapping[np.argmax(P_cls[0, ii, :])]
@@ -288,7 +288,7 @@ for idx, img_data in enumerate(test_imgs):
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
-	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}_ltn.png'.format(img_name), img)
+	cv2.imwrite('/Users/davidemiro/Desktop/bb_k_p/{}_ltn.png'.format(img_name), img)
 '''
 from __future__ import division
 import os

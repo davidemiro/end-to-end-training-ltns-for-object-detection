@@ -1,3 +1,4 @@
+
 import os
 import cv2
 import numpy as np
@@ -231,6 +232,7 @@ T = {}
 P = {}
 T_partof = []
 P_partof = []
+import os
 for idx, img_data in enumerate(test_imgs):
     print('{}/{}'.format(idx, len(test_imgs)))
     st = time.time()
@@ -251,7 +253,7 @@ for idx, img_data in enumerate(test_imgs):
     ids = [i for i in range(R.shape[0])]
     o1_o2_p = []
 
-    Y3, detected_part_of = roi_helpers.calc_iou_partOf_test(R, img_data, C, inv_map)
+    Y3, detected_part_of,pairs,x_roi = roi_helpers.calc_iou_partOf_test(R, img_data, C, inv_map)
 
     if Y3 == None:
         continue
@@ -315,7 +317,7 @@ for idx, img_data in enumerate(test_imgs):
     _,out_class = model_classifier_partOf.predict([F, ROIs])
 
     inputs = bb_creation(out_class,ROIs,F,300)
-
+    os.mkdir('/Users/davidemiro/Desktop/{}'.format(img_data['filepath'][-15:-4]))
     inputs_part_of = []
     for i in range(300):
         for j in range(300):
@@ -327,11 +329,45 @@ for idx, img_data in enumerate(test_imgs):
 
     out_part_of = model_partOf.predict([inputs_part_of])
 
+    f_pos = open('/Users/davidemiro/Desktop/{}/pos_{}.txt'.format(img_data['filepath'][-15:-4],img_data['filepath'][-15:-4]),'w')
+    f_neg = open('/Users/davidemiro/Desktop/{}/neg_{}.txt'.format(img_data['filepath'][-15:-4],img_data['filepath'][-15:-4]),'w')
+    f_pos.write('Pair\tPrediction\tRoi First\tRoi Last\n')
+    f_neg.write('Pair\tPrediction\tRoi First\tRoi Last\n')
     ii = 0
     for i in range(300):
         for j in range(300):
             o1_o2_p.append((i,j,out_part_of[0,ii],Y3[i][j]))
-            ii += 1
+
+
+            if Y3[i][j] == 1:
+                f_pos.write('{}\t{}\t{}\t{}\n'.format(pairs[i][j],out_part_of[0,ii],x_roi[i],x_roi[j]))
+            if Y3[i][j] == 0:
+                f_neg.write('{}\t{}\t{}\t{}\n'.format(pairs[i][j],out_part_of[0,ii],x_roi[i],x_roi[j]))
+            ii +=1
+    f_pos.close()
+    f_neg.close()
+
+    img = cv2.imread(img_data['filepath'])
+    for b in img_data['bboxes']:
+        (real_x1, real_y1, real_x2, real_y2) = b['x1'], b['y1'], b['x2'], b['y2']
+        key = b['class']
+
+        cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2),
+                      (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])), 2)
+
+        textLabel = '{}'.format(b['id'])
+
+        (retval, baseLine) = cv2.getTextSize(textLabel, cv2.FONT_HERSHEY_COMPLEX, 1, 1)
+        textOrg = (real_x1, real_y1 - 0)
+
+        cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5),
+                      (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (0, 0, 0), 2)
+        cv2.rectangle(img, (textOrg[0] - 5, textOrg[1] + baseLine - 5),
+                      (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
+        cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
+
+    cv2.imwrite('/Users/davidemiro/Desktop/{}/{}_gt.png'.format(img_data['filepath'][-15:-4],img_data['filepath'][-15:-4]), img)
+    continue
 
 
 
@@ -352,9 +388,8 @@ for idx, img_data in enumerate(test_imgs):
     p_part_of = []
 
     for c in o1_o2_p:
-        if c[0] in dets_rois and c[1] in dets_rois:
-            t_part_of.append(c[3])
-            p_part_of.append(c[2])
+        t_part_of.append(c[3])
+        p_part_of.append(c[2])
     '''
     for b in img_data['bboxes']:
         if b['partOf'] != b['id']:
@@ -362,6 +397,7 @@ for idx, img_data in enumerate(test_imgs):
                 t_part_of.append(1)
                 p_part_of.append(0)
     '''
+
 
     T_partof.extend(t_part_of)
     P_partof.extend(p_part_of)
@@ -391,6 +427,7 @@ with open('T_' + options.name + '.pkl', 'wb') as f:
     pickle.dump(T, f)
 with open('P_' + options.name + '.pkl', 'wb') as f:
     pickle.dump(P, f)
+
 
 
 '''

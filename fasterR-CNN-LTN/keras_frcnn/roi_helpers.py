@@ -130,12 +130,10 @@ def calc_iou_partOf_test(R, img_data, C, class_mapping):
 		gta[bbox_num, 3] = int(round(bbox['y2'] * (resized_height / float(height))/C.rpn_stride))
 
 	x_roi = []
-	y_class_num = []
-	y_class_regr_coords = []
-	y_class_regr_label = []
 	partsOf = []
 	IoUs = [] # for debugging only
 	count = 0
+
 
 	for ix in range(R.shape[0]):
 		(x1, y1, x2, y2) = R[ix, :]
@@ -152,84 +150,54 @@ def calc_iou_partOf_test(R, img_data, C, class_mapping):
 				best_iou = curr_iou
 				best_bbox = bbox_num
 
-		if best_iou < C.classifier_min_overlap:
-			p = {}
-			p['id'] = 'bg_'+str(ix)
-			p['partOf'] = 'bg_'+str(ix)
-			partsOf.append(p)
-			continue
+		x1 = int(x1 / ((resized_width / float(width)) / C.rpn_stride))
+		x2 = int(x2 / ((resized_width / float(width)) / C.rpn_stride))
+		y1 = int(y1 / ((resized_height / float(height)) / C.rpn_stride))
+		y2 = int(y2 / ((resized_height / float(height)) / C.rpn_stride))
+		x_roi.append('{}_{}_{}_{}'.format(x1,x2,y1,y2))
+		if best_iou < 0.5:
+
+			x1 = int(x1 / ((resized_width / float(width)) / C.rpn_stride))
+			x2 = int(x2 / ((resized_width / float(width)) / C.rpn_stride))
+			y1 = int(y1 / ((resized_height / float(height)) / C.rpn_stride))
+			y2 = int(y2 / ((resized_height / float(height)) / C.rpn_stride))
+			id = 'bg{}_{}_{}_{}'.format(x1,x2,y1,y2)
+			partOf = 'bg{}_{}_{}_{}'.format(x1,x2,y1,y2)
+
 		else:
-			w = x2 - x1
-			h = y2 - y1
-			x_roi.append([x1, y1, w, h])
-			IoUs.append(best_iou)
+			id = bboxes[best_bbox]['id']
+			partOf = bboxes[best_bbox]['partOf']
 
-			if C.classifier_min_overlap <= best_iou < C.classifier_max_overlap:
-				# hard negative example
-				cls_name = 'bg'
-			elif C.classifier_max_overlap <= best_iou:
-				cls_name = bboxes[best_bbox]['class']
-				id = bboxes[best_bbox]['id']
-				partOf = bboxes[best_bbox]['partOf']
-				n = count
-				cxg = (gta[best_bbox, 0] + gta[best_bbox, 1]) / 2.0
-				cyg = (gta[best_bbox, 2] + gta[best_bbox, 3]) / 2.0
 
-				cx = x1 + w / 2.0
-				cy = y1 + h / 2.0
 
-				tx = (cxg - cx) / float(w)
-				ty = (cyg - cy) / float(h)
-				tw = np.log((gta[best_bbox, 1] - gta[best_bbox, 0]) / float(w))
-				th = np.log((gta[best_bbox, 3] - gta[best_bbox, 2]) / float(h))
-			else:
-				print('roi = {}'.format(best_iou))
-				raise RuntimeError
-
-		class_num = class_mapping[cls_name]
-		class_label = len(class_mapping) * [0]
-		class_label[class_num] = 1
-		y_class_num.append(copy.deepcopy(class_label))
-		coords = [0] * 4 * (len(class_mapping) - 1)
-		labels = [0] * 4 * (len(class_mapping) - 1)
-		if cls_name != 'bg':
-			label_pos = 4 * class_num
-			sx, sy, sw, sh = C.classifier_regr_std
-			coords[label_pos:4+label_pos] = [sx*tx, sy*ty, sw*tw, sh*th]
-			labels[label_pos:4+label_pos] = [1, 1, 1, 1]
-			y_class_regr_coords.append(copy.deepcopy(coords))
-			y_class_regr_label.append(copy.deepcopy(labels))
-		else:
-			id = 'bg_'+str(ix)
-			partOf = 'bg_'+str(ix)
-			y_class_regr_coords.append(copy.deepcopy(coords))
-			y_class_regr_label.append(copy.deepcopy(labels))
 		p = {}
 		p['id'] = id
 		p['partOf'] = partOf
 		partsOf.append(p)
 
-	if len(x_roi) == 0:
-		return None, None
+	if len(partsOf) == 0:
+		return None, None, None ,None
 
-	X = np.array(x_roi)
-	Y1 = np.array(y_class_num)
-	Y2 = np.concatenate([np.array(y_class_regr_label),np.array(y_class_regr_coords)],axis=1)
+
 	y_partOf = []
 	gt_partOf =[]
+	mat_gt_partOf = []
 
 	for i in partsOf:
 		r = []
-
+		r_g = []
 		for j in partsOf:
 			if i['partOf'] == j['id'] and i['id'] != j['id']:
+				r_g.append(i['id']+j['id'])
 				gt_partOf.append(i['id']+j['id'])
 				r.append(1)
 			else:
 				r.append(0)
+				r_g.append(i['id']+j['id'])
 		y_partOf.append(r)
+		mat_gt_partOf.append(r_g)
 
-	return y_partOf,gt_partOf
+	return y_partOf,gt_partOf,mat_gt_partOf,x_roi
 def calc_iou(R, img_data, C, class_mapping):
 
 	bboxes = img_data['bboxes']
