@@ -311,14 +311,14 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
     x = Pair(num_rois)(x)
     partOf = ltn.Predicate(num_features=(nb_classes + 5) * 2, k=6, i=nb_classes + 1)
     partOf_prediction = partOf(x)
-    partOf_prediction = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Predicitions',summarize=20000000))(partOf_prediction)
-    Y_partOf = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Y_partOf',summarize=20000000))(Y_partOf)
+    #partOf_prediction = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Predicitions',summarize=20000000))(partOf_prediction)
+    #Y_partOf = keras.layers.Lambda(lambda x: tf.Print(x,[x],'Y_partOf',summarize=20000000))(Y_partOf)
     x = Literal(name='partOf_literal', batch_size=num_rois//2 * num_rois//2)([partOf_prediction, Y_partOf])
     x = Clause(tnorm=tnorm, aggregator=aggregator, gamma=gamma, name='partOf')(x)
 
     output.append(x)
 
-    '''
+    
 
 
 
@@ -381,7 +381,7 @@ def classifier(base_layers, input_rois, num_rois, nb_classes ,tnorm , aggregator
         at_least_literals.append(l)
     x = Clause(tnorm = tnorm, aggregator = aggregator, gamma = gamma,name = 'at_least_one_class')(at_least_literals)
     output.append(x)
-    '''
+
 
 
 

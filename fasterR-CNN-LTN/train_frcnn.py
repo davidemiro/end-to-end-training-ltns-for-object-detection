@@ -8,6 +8,7 @@ from optparse import OptionParser
 import pickle
 import random
 #import neptune
+import os
 
 from keras import backend as K
 from keras.optimizers import Adam, SGD, RMSprop
@@ -191,8 +192,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5', by_name=True)
-	model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5', by_name=True)
+	model_rpn.load_weights(C.base_net_weights, by_name=True)
+	model_classifier.load_weights(C.base_net_weights, by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -225,13 +226,13 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = 9.82586775628
+best_loss = np.Inf
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-for epoch_num in range(294,num_epochs):
+for epoch_num in range(num_epochs):
 
 
 
@@ -260,12 +261,12 @@ for epoch_num in range(294,num_epochs):
 			loss_rpn = model_rpn.train_on_batch(X, Y)
 
 			P_rpn = model_rpn.predict_on_batch(X)
-			continue
+
 
 			R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7,
 									   max_boxes=300)
 			# note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
-			X2, Y1, Y2, Y3, IouS = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
+			X2, Y1, Y2, Y3, IouS,relations = roi_helpers.calc_iou_partOf(R, img_data, C, class_mapping)
 
 			if X2 is None:
 				rpn_accuracy_rpn_monitor.append(0)
@@ -292,7 +293,36 @@ for epoch_num in range(294,num_epochs):
 				if len(pos_samples) < C.num_rois // 2:
 					selected_pos_samples = pos_samples.tolist()
 				else:
-					selected_pos_samples = np.random.choice(pos_samples, C.num_rois // 2, replace=False).tolist()
+
+					if relations == {}:
+						selected_pos_samples = np.random.choice(pos_samples, C.num_rois // 2, replace=False).tolist()
+					else:
+						selected_pos_samples = []
+						it = 0
+						relations_list = list(relations.items())
+						random.shuffle(relations_list)
+						while len(selected_pos_samples) < C.num_rois // 2 and relations != {}:
+
+
+							if relations_list == []:
+								break
+							_, v = relations_list[it]
+							if len(v) == 0:
+								del relations_list[it]
+								continue
+							pick = v[random.randint(0, len(v) - 1)]
+
+							selected_pos_samples.append(pick[0])
+							selected_pos_samples.append(pick[1])
+							it += 1
+							it = it % len(relations_list)
+
+
+						if len(selected_pos_samples) < C.num_rois // 2:
+							pos_sampless = pos_samples.tolist()
+							for s in selected_pos_samples:
+								pos_sampless.remove(s)
+						selected_pos_samples += np.random.choice(pos_samples, C.num_rois // 2 - len(selected_pos_samples) , replace=False).tolist()
 				try:
 					selected_neg_samples = np.random.choice(neg_samples, C.num_rois - len(selected_pos_samples),
 															replace=False).tolist()
@@ -399,6 +429,9 @@ for epoch_num in range(294,num_epochs):
 
 		except Exception as e:
 			print('Exception: {}'.format(e))
+			exc_type, exc_obj, exc_tb = sys.exc_info()
+			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+			print(exc_type, fname, exc_tb.tb_lineno)
 			continue
 
 print('Training complete, exiting.')

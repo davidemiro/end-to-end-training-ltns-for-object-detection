@@ -26,7 +26,7 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 	y_class_regr_label = []
 	partsOf = []
 	IoUs = [] # for debugging only
-	count = 0
+	ii = 0
 
 	for ix in range(R.shape[0]):
 		(x1, y1, x2, y2) = R[ix, :]
@@ -58,7 +58,7 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 				cls_name = bboxes[best_bbox]['class']
 				id = bboxes[best_bbox]['id']
 				partOf = bboxes[best_bbox]['partOf']
-				n = count
+
 				cxg = (gta[best_bbox, 0] + gta[best_bbox, 1]) / 2.0
 				cyg = (gta[best_bbox, 2] + gta[best_bbox, 3]) / 2.0
 
@@ -94,6 +94,8 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 		p = {}
 		p['id'] = id
 		p['partOf'] = partOf
+		p['ii'] = ii
+		ii += 1
 		partsOf.append(p)
 
 	if len(x_roi) == 0:
@@ -103,16 +105,22 @@ def calc_iou_partOf(R, img_data, C, class_mapping):
 	Y1 = np.array(y_class_num)
 	Y2 = np.concatenate([np.array(y_class_regr_label),np.array(y_class_regr_coords)],axis=1)
 	y_partOf = []
+	relations = {}
 
 	for i in partsOf:
 		r = []
 		for j in partsOf:
 			if i['partOf'] == j['id'] and i['id'] != j['id']:
+				if i['id']+i['partOf'] in relations:
+					relations[i['id']+i['partOf']].append((i['ii'],j['ii']))
+				else:
+					relations[i['id'] + i['partOf']]= [(i['ii'], j['ii'])]
+
 				r.append(1)
 			else:
 				r.append(0)
 		y_partOf.append(r)
-	return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0), y_partOf, IoUs
+	return np.expand_dims(X, axis=0), np.expand_dims(Y1, axis=0), np.expand_dims(Y2, axis=0), y_partOf, IoUs,relations
 def calc_iou_partOf_test(R, img_data, C, class_mapping):
 
 	bboxes = img_data['bboxes']
