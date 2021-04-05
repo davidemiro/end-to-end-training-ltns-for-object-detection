@@ -192,8 +192,8 @@ model_all = Model([img_input, roi_input]+Y+[Y_partOf], rpn[:2] + classifier)
 
 try:
 	print('loading weights from {}'.format(C.base_net_weights))
-	model_rpn.load_weights(C.base_net_weights, by_name=True)
-	model_classifier.load_weights(C.base_net_weights, by_name=True)
+	model_rpn.load_weights('model_last_partOf_best_18.hdf5', by_name=True)
+	model_classifier.load_weights('model_last_partOf_best_18.hdf5', by_name=True)
 except:
 	print('Could not load pretrained model weights. Weights can be found in the keras application folder \
 		https://github.com/fchollet/keras/tree/master/keras/applications')
@@ -226,13 +226,13 @@ rpn_accuracy_for_epoch = []
 
 start_time = time.time()
 
-best_loss = np.Inf
+best_loss = 25.7386347836
 
 class_mapping_inv = {v: k for k, v in class_mapping.items()}
 print('Starting training')
 
 vis = True
-for epoch_num in range(num_epochs):
+for epoch_num in range(19,num_epochs):
 
 
 
