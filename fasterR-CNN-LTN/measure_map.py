@@ -215,10 +215,10 @@ model_classifier = Model([feature_map_input, roi_input], classifier)
 model_classifier_partOf = Model([feature_map_input, roi_input_p], classifier_partOf)
 model_partOf = Model([input_partOf],part_Of_classifier)
 
-model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name), by_name=True)
-model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
-model_classifier_partOf.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
-model_partOf.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_partOf_best_293.hdf5'.format(options.name),by_name=True)
+model_rpn.load_weights('model_{}.hdf5'.format(options.name), by_name=True)
+model_classifier.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
+model_classifier_partOf.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
+model_partOf.load_weights('model_{}.hdf5'.format(options.name),by_name=True)
 
 
 model_rpn.compile(optimizer='sgd', loss='mse')
@@ -317,12 +317,17 @@ for idx, img_data in enumerate(test_imgs):
     inputs = bb_creation(out_class,ROIs,F,300)
 
     inputs_part_of = []
+    inclusio_ratios = []
     for i in range(300):
+        ic = []
         for j in range(300):
+
             cts = containment_ratios_between_two_bbxes(inputs[0, i, :], inputs[0, j, :])
+            ic.append(cts);
             x = np.concatenate([inputs[0, i, :], inputs[0, j, :], cts], axis=0)
             x = np.expand_dims(np.expand_dims(x, axis=0), axis=0)
             inputs_part_of.append(x)
+        inclusio_ratios.append(ic)
     inputs_part_of = np.concatenate(inputs_part_of, axis=1)
 
     out_part_of = model_partOf.predict([inputs_part_of])
@@ -330,8 +335,15 @@ for idx, img_data in enumerate(test_imgs):
     ii = 0
     for i in range(300):
         for j in range(300):
-            o1_o2_p.append((i,j,out_part_of[0,ii],Y3[i][j]))
+            x = inclusio_ratios[i][j][0]
+            y = inclusio_ratios[i][j][1]
+            o1_o2_p.append((i,j,out_part_of[0,ii],Y3[i][j],x + y))
             ii += 1
+
+    o1_o2_p = sorted(o1_o2_p,key=lambda x: x[4],reverse=True)
+
+    o1_o2_p = o1_o2_p[0:100] #top-100
+
 
 
 
@@ -357,13 +369,13 @@ for idx, img_data in enumerate(test_imgs):
         if Y3[c[0]][c[1]] == 1:
             t_part_of.append(c[3])
             p_part_of.append(c[2])
-    '''
+
     for b in img_data['bboxes']:
         if b['partOf'] != b['id']:
             if '{}{}'.format(b['id'], b['partOf']) not in detected_part_of:
                 t_part_of.append(1)
                 p_part_of.append(0)
-    '''
+
 
     T_partof.extend(t_part_of)
     P_partof.extend(p_part_of)

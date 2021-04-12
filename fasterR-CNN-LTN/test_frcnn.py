@@ -38,8 +38,8 @@ elif options.parser == 'simple':
 else:
     raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 
-config_output_filename = '/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/config_focal_logsum_bg_PASCAL_parts_knowledge_partOf.pickle'
-
+#config_output_filename = '/Users/davidemiro/Desktop/Pesi_allenamenti/fasterR-CNN-LTN/config_focal_logsum_with_bg.pickle'
+config_output_filename = '/Users/davidemiro/Desktop/Pesi_107/config_focal_logsum_bg_PASCAL_parts_knowledge_partOf.pickle'
 
 with open(config_output_filename, 'rb') as f_in:
 	C = pickle.load(f_in)
@@ -113,6 +113,8 @@ if 'bg' not in class_mapping:
 
 class_mapping = {v: k for k, v in class_mapping.items()}
 print(class_mapping)
+
+
 class_to_color = {class_mapping[v]: np.random.randint(0, 255, 3) for v in class_mapping}
 C.num_rois = int(options.num_rois)
 
@@ -149,9 +151,16 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
+'''
+model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/fasterR-CNN-LTN/model_focal_logsum_with_bg.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/fasterR-CNN-LTN/model_focal_logsum_with_bg.hdf5', by_name=True)
+'''
+'/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5'
+model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_focal_logsum_bg_PASCAL_parts.hdf5', by_name=True)
+model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_focal_logsum_bg_PASCAL_parts.hdf5', by_name=True)
+
 model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5', by_name=True)
 model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_107/fasterR-CNN-LTN/model_focal_logsum_bg_PASCAL_parts_knowledge_300.hdf5', by_name=True)
-
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
@@ -177,9 +186,10 @@ for idx, img_data in enumerate(test_imgs):
 
 	img = cv2.imread(filepath)
 	X, ratio = format_img(img, C)
+	'''
 	for b in img_data['bboxes']:
 		(real_x1, real_y1, real_x2, real_y2) = b['x1'], b['y1'], b['x2'], b['y2']
-		key = b['class']
+		key = b['class'].lower()
 
 		cv2.rectangle(img, (real_x1, real_y1), (real_x2, real_y2),
 					  (int(class_to_color[key][0]), int(class_to_color[key][1]), int(class_to_color[key][2])), 2)
@@ -195,8 +205,8 @@ for idx, img_data in enumerate(test_imgs):
 					  (textOrg[0] + retval[0] + 5, textOrg[1] - retval[1] - 5), (255, 255, 255), -1)
 		cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
 
-	cv2.imwrite('/Users/davidemiro/Desktop/bb_k_p/{}_gt.png'.format(img_name), img)
-
+	#cv2.imwrite('/Users/davidemiro/Desktop/tes/{}_gt.png'.format(img_name), img)
+	'''
 	img = cv2.imread(filepath)
 
 	X, ratio = format_img(img, C)
@@ -288,7 +298,7 @@ for idx, img_data in enumerate(test_imgs):
 
 	print('Elapsed time = {}'.format(time.time() - st))
 	print(all_dets)
-	cv2.imwrite('/Users/davidemiro/Desktop/bb_k_p/{}_ltn.png'.format(img_name), img)
+	cv2.imwrite('/Users/davidemiro/Desktop/tes/{}_f-ltn-parts-knowledge.png'.format(img_name), img)
 '''
 from __future__ import division
 import os

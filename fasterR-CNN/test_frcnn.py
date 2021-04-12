@@ -147,10 +147,10 @@ model_classifier_only = Model([feature_map_input, roi_input], classifier)
 model_classifier = Model([feature_map_input, roi_input], classifier)
 
 print('Loading weights from {}'.format(C.model_path))
-'''
+
 model_rpn.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_rpn_original.hdf5', by_name=True)
 model_classifier.load_weights('/Users/davidemiro/Desktop/Pesi_allenamenti/model_classifier_original.hdf5', by_name=True)
-'''
+
 model_rpn.compile(optimizer='sgd', loss='mse')
 model_classifier.compile(optimizer='sgd', loss='mse')
 
@@ -195,7 +195,7 @@ for idx, img_data in enumerate(test_imgs):
 		cv2.putText(img, textLabel, textOrg, cv2.FONT_HERSHEY_DUPLEX, 1, (0, 0, 0), 1)
 
 	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}_gt.png'.format(img_name), img)
-'''
+
 
 	img = cv2.imread(filepath)
 
@@ -288,5 +288,4 @@ for idx, img_data in enumerate(test_imgs):
 	print(all_dets)
 #	cv2.imshow('img', img)
 #	cv2.waitKey(0)
-	cv2.imwrite('/Users/davidemiro/Desktop/bjd/{}.png'.format(img_name), img)
-'''
+	cv2.imwrite('/Users/davidemiro/Desktop/tes/{}_parts.png'.format(img_name), img)
