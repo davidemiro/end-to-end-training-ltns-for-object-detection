@@ -129,7 +129,7 @@ elif options.parser == 'simple':
 else:
     raise ValueError("Command line option parser must be one of 'pascal_voc' or 'simple'")
 #config_output_filename = '/content/drive/MyDrive/Tesi_Davide_Miro-main/fasterR-CNN-LTN/config_focal_logsum_bg_PASCAL_parts_knowledge_partOf.pickle'
-config_output_filename = 'config_'+options.name+'.pickle'
+config_output_filename = 'config_last_partOf.pickle'
 with open(config_output_filename, 'rb') as f_in:
     C = pickle.load(f_in)
 # turn off any data augmentation at test time
@@ -323,7 +323,7 @@ for idx, img_data in enumerate(test_imgs):
         for j in range(300):
 
             cts = containment_ratios_between_two_bbxes(inputs[0, i, :], inputs[0, j, :])
-            ic.append(cts);
+            ic.append(cts)
             x = np.concatenate([inputs[0, i, :], inputs[0, j, :], cts], axis=0)
             x = np.expand_dims(np.expand_dims(x, axis=0), axis=0)
             inputs_part_of.append(x)
@@ -366,9 +366,11 @@ for idx, img_data in enumerate(test_imgs):
     true_dets = {}
 
     for c in o1_o2_p:
-        if Y3[c[0]][c[1]] == 1:
-            t_part_of.append(c[3])
-            p_part_of.append(c[2])
+        if c[0] in dets_rois and c[1] in dets_rois:
+            if Y3[c[0]][c[1]] == 1:
+                t_part_of.append(c[3])
+                p_part_of.append(c[2])
+
 
     for b in img_data['bboxes']:
         if b['partOf'] != b['id']:
@@ -382,10 +384,7 @@ for idx, img_data in enumerate(test_imgs):
 
     print('Elapsed time = {}'.format(time.time() - st))
 
-    ap = average_precision_score(T_partof, P_partof)
-    print('PartOf AP: {}'.format(ap))
 
-    print('Elapsed time = {}'.format(time.time() - st))
     t, p = get_map(all_dets, img_data['bboxes'], (fx, fy))
     for key in t.keys():
         if key not in T:
@@ -398,6 +397,9 @@ for idx, img_data in enumerate(test_imgs):
         ap = average_precision_score(T[key], P[key])
         print('{} AP: {}'.format(key, ap))
         all_aps.append(ap)
+
+    ap = average_precision_score(T_partof, P_partof)
+    print('PartOf AP: {}'.format(ap))
     print('mAP = {}'.format(np.mean(np.array(all_aps))))
 T['partOf'] = T_partof
 P['partOf'] = P_partof
